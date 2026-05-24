@@ -1,10 +1,26 @@
-# shamir-zero
-A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
+# ShamirZero - Pure Rust implementation of Shamir's Secret Sharing Algorithm
+
+<p align="center">
+    <picture>
+        <img src="https://raw.githubusercontent.com/allensarkisyan/shamir_zero/main/assets/shamir_zero.jpg" alt="ShamirZero">
+    </picture>
+</p>
+
+Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+![Last Commit](https://img.shields.io/github/last-commit/allensarkisyan/shamir_zero)
+![CodeQL](https://github.com/allensarkisyan/shamir_zero/workflows/CodeQL/badge.svg?branch=main)
+![GitHub issues](https://img.shields.io/github/issues/allensarkisyan/shamir_zero)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/allensarkisyan/shamir_zero/tests.yml?label=tests)
+[![codecov](https://codecov.io/gh/allensarkisyan/shamir_zero/graph/badge.svg?token=CMZZBK817L)](https://codecov.io/gh/allensarkisyan/shamir_zero)
 
 ## Original Source Code
+
 [`github.com/hashicorp/vault/shamir/shamir.go`](https://github.com/hashicorp/vault/blob/v2.0.1/shamir/shamir.go)
 
 # Getting Started
+
 ```rust
 use shamir_zero::{shamir_split, shamir_combine};
 
@@ -16,7 +32,6 @@ let recovered = shamir_combine(&secret_shares[0..3]).unwrap();
 
 assert_eq!(secret_key.to_vec(), recovered);
 ```
-
 
 # Development & Testing
 
@@ -45,6 +60,7 @@ cargo coverage-report
 ```
 
 # License
+
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 
 MIT License
@@ -70,6 +86,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ## Contributing
+
 Contributions are welcome! If you have suggestions, bug reports, or would like to contribute to this project,
 please open an issue or submit a pull request.
 

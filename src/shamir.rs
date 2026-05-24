@@ -35,7 +35,7 @@ pub enum ShamirError {
 /// # Examples
 ///
 /// ```
-/// use shamir_rs::{shamir_split, shamir_combine};
+/// use shamir_zero::{shamir_split, shamir_combine};
 ///
 /// let secret_key = b"top secret security key";
 ///
