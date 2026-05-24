@@ -2,18 +2,20 @@
 
 <p align="center">
     <picture>
-        <img src="https://raw.githubusercontent.com/allensarkisyan/shamir_zero/main/assets/shamir_zero.jpg" alt="ShamirZero">
+        <img src="/assets/shamir_zero.jpg" alt="ShamirZero">
     </picture>
 </p>
 
 Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
 
+![Crates.io Version](https://img.shields.io/crates/v/shamir_zero)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 ![Last Commit](https://img.shields.io/github/last-commit/allensarkisyan/shamir_zero)
-![CodeQL](https://github.com/allensarkisyan/shamir_zero/workflows/CodeQL/badge.svg?branch=main)
+[![CodeQL](https://github.com/allensarkisyan/shamir-zero/actions/workflows/codeql.yml/badge.svg)](https://github.com/allensarkisyan/shamir-zero/actions/workflows/codeql.yml)
 ![GitHub issues](https://img.shields.io/github/issues/allensarkisyan/shamir_zero)
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/allensarkisyan/shamir_zero/tests.yml?label=tests)
 [![codecov](https://codecov.io/gh/allensarkisyan/shamir_zero/graph/badge.svg?token=CMZZBK817L)](https://codecov.io/gh/allensarkisyan/shamir_zero)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/allensarkisyan/shamir_zero/badge)](https://securityscorecards.dev/viewer/?uri=github.com/allensarkisyan/shamir_zero)
 
 ## Original Source Code
 
