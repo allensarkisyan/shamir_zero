@@ -1,11 +1,19 @@
 [package]
-name = "shamir-rs"
+name = "shamir-zero"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
-description = "A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)"
+repository = "https://github.com/allensarkisyan/shamir_zero"
+readme = "README.md"
+keywords = ["cryptography", "shamir", "secret-sharing", "sss", "threshold-cryptography"]
+categories = ["cryptography", "security", "mathematics", "algorithms"]
+description = """
+A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
+"""
 
+[features]
+default = []
 
 [dependencies]
 rand = { version = "0.10", features = ["sys_rng"] }

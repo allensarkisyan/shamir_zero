@@ -1,4 +1,4 @@
-# shamir-rs
+# shamir-zero
 A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
 
 ## Original Source Code
@@ -6,7 +6,7 @@ A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (original
 
 # Getting Started
 ```rust
-use shamir_rs::{shamir_split, shamir_combine};
+use shamir_zero::{shamir_split, shamir_combine};
 
 let secret_key = b"top secret security key";
 

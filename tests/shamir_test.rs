@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod shamir_tests {
     use rand::{TryRng, rngs::SysRng};
-    use shamir_rs::{shamir_combine, shamir_split};
+    use shamir_zero::{shamir_combine, shamir_split};
 
     /// Helper method to generate random sized bytes
     fn generate_random_bytes_sized<const N: usize>() -> [u8; N] {

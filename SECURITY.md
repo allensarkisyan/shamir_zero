@@ -8,6 +8,6 @@
 
 ## Reporting a Vulnerability
 
-[Open a GitHub Issue](https://github.com/allensarkisyan/shamir_rs/issues/new)
+[Open a GitHub Issue](https://github.com/allensarkisyan/shamir_zero/issues/new)
 
-URL: https://github.com/allensarkisyan/shamir_rs/issues/new
+URL: https://github.com/allensarkisyan/shamir_zero/issues/new
