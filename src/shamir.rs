@@ -36,7 +36,7 @@ pub fn shamir_split(
     parts: usize,
     threshold: usize,
 ) -> Result<Vec<Vec<u8>>, ShamirError> {
-    if secret.is_empty() || threshold < 2 || threshold > 255 || parts < threshold || parts > 255 {
+    if secret.is_empty() || !(2..=255).contains(&threshold) || parts < threshold || parts > 255 {
         return Err(if secret.is_empty() {
             ShamirError::EmptySecret
         } else if threshold < 2 {
