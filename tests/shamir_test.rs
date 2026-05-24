@@ -35,6 +35,10 @@ mod shamir_tests {
         for share in &out {
             assert_eq!(share.len(), secret.len() + 1);
         }
+
+        // Threshold max length
+        let out = shamir_split(secret, 5, 256);
+        assert!(out.is_err());
     }
 
     #[test]

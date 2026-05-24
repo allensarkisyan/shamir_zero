@@ -5,6 +5,32 @@ A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (original
 [`github.com/hashicorp/vault/shamir/shamir.go`](https://github.com/hashicorp/vault/blob/v2.0.1/shamir/shamir.go)
 
 
+# Development & Testing
+
+### Code Quality & Coverage Reporting
+
+```bash
+cargo clippy --all-targets &> ./tmp/clippy.log
+```
+
+Or use the `clippy-log` alias configured in `.cargo/config.toml`
+
+<br />
+
+```bash
+cargo install cargo-tarpaulin
+```
+
+```bash
+cargo tarpaulin --follow-exec --timeout 60 --branch --out Html --output-dir ./tmp/coverage
+```
+
+Or use the `coverage-report` alias configured in `.cargo/config.toml`
+
+```bash
+cargo coverage-report
+```
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 

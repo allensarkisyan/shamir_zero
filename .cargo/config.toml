@@ -1,2 +1,6 @@
 [env]
 RUST_BACKTRACE="full"
+
+[alias]
+coverage-report = "tarpaulin --follow-exec --timeout 60 --branch --out Html --output-dir ./tmp/coverage"
+clippy-log = "clippy --all-targets &> ./tmp/clippy.log"

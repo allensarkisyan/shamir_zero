@@ -1,0 +1,2 @@
+[configs]
+include-files = ["src/*"]

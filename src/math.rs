@@ -117,14 +117,12 @@ pub(crate) const fn div(a: u8, b: u8) -> u8 {
 pub(crate) fn interpolate_polynomial(x_samples: &[u8], y_samples: &[u8], x: u8) -> u8 {
     let n = x_samples.len();
 
-    if n != y_samples.len() {
+    if n != y_samples.len() || n == 0 {
         return 0;
     }
 
-    match n {
-        0 => return 0,
-        1 => return y_samples[0],
-        _ => {}
+    if n == 1 {
+        return y_samples[0];
     }
 
     // Precompute delta_inv[i]
@@ -184,6 +182,7 @@ mod shamir_math_tests {
         assert_eq!(div(0, 7), 0);
         assert_eq!(div(3, 3), 1);
         assert_eq!(div(6, 3), 2);
+        assert_eq!(div(12, 0), 0);
     }
 
     #[test]
@@ -201,6 +200,18 @@ mod shamir_math_tests {
     }
 
     #[test]
+    fn test_interpolate() {
+        let out = interpolate_polynomial(&[0, 1, 2], &[1], 0);
+        assert_eq!(out, 0);
+
+        let out = interpolate_polynomial(&[], &[], 3);
+        assert_eq!(out, 0);
+
+        let out = interpolate_polynomial(&[8], &[11], 3);
+        assert_eq!(out, 11);
+    }
+
+    #[test]
     fn test_interpolate_rand() {
         for i in 0..=255u8 {
             let p = Polynomial::new(i, 2).unwrap();
@@ -211,9 +222,72 @@ mod shamir_math_tests {
         }
     }
 
+    /// Comprehensive unit test for the reference inverse implementation (`inverse_11x`).
+    /// This verifies the mathematical properties of the GF(2^8) inverse (a^254):
     #[test]
+    fn test_inverse_11x() {
+        // 1. Zero and identity edge cases
+        assert_eq!(inverse_11x(0), 0, "inverse(0) must be 0");
+        assert_eq!(inverse_11x(1), 1, "inverse(1) must be 1");
 
+        // 2. Exhaustive correctness test over the entire field (256 values)
+        for a in 0u8..=255 {
+            let inv = inverse_11x(a);
+
+            // a * inv(a) == 1 (when a != 0)
+            if a != 0 {
+                let product = mult(a, inv);
+                assert_eq!(
+                    product, 1,
+                    "Round-trip failure for a = 0x{:02x}: a * inv(a) = 0x{:02x} (expected 1)",
+                    a, product
+                );
+            }
+
+            // involution: inv(inv(a)) == a
+            let inv_inv = inverse_11x(inv);
+            assert_eq!(
+                inv_inv, a,
+                "Involution failure for a = 0x{:02x}: inv(inv(a)) = 0x{:02x} (expected 0x{:02x})",
+                a, inv_inv, a
+            );
+        }
+
+        // 3. Must be identical to the fast lookup table (single source of truth)
+        for a in 0u8..=255 {
+            assert_eq!(
+                inverse_11x(a),
+                INV_TABLE[a as usize],
+                "inverse_11x(0x{:02x}) does not match INV_TABLE entry",
+                a
+            );
+        }
+
+        // 4. Well-known test vectors from the GF(2^8) field (AES S-box related)
+        let known_cases = [
+            (0x00, 0x00),
+            (0x01, 0x01),
+            (0x02, 0x8d),
+            (0x03, 0xf6),
+            (0x53, 0xca),
+            (0xff, 0x1c),
+        ];
+
+        for (a, expected) in known_cases {
+            let actual = inverse_11x(a);
+            assert_eq!(
+                actual, expected,
+                "Known value failed: inverse(0x{:02x}) = 0x{:02x} (expected 0x{:02x})",
+                a, actual, expected
+            );
+        }
+
+        println!("✅ All tests passed for inverse_11x (256 values fully verified)");
+    }
+
+    #[test]
     fn generates_inverse_lut() {
+        let gen_lut = generate_inverse_table();
         let inverse_table: [u8; 256] = [
             0, 1, 141, 246, 203, 82, 123, 209, 232, 79, 41, 192, 176, 225, 229, 199, 116, 180, 170,
             75, 153, 43, 96, 95, 88, 63, 253, 204, 255, 64, 238, 178, 58, 110, 90, 241, 85, 77,
@@ -232,5 +306,6 @@ mod shamir_math_tests {
         ];
 
         assert_eq!(INV_TABLE, inverse_table);
+        assert_eq!(gen_lut, inverse_table);
     }
 }
