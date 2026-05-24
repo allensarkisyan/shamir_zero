@@ -7,7 +7,7 @@ pub(crate) struct Polynomial {
 
 impl Polynomial {
     /// Constructs a random polynomial of the given degree with the provided intercept value.
-    pub fn new(intercept: u8, degree: u8) -> Result<Self, String> {
+    pub fn new(intercept: u8, degree: u8) -> Result<Self, Box<dyn std::error::Error>> {
         let mut coefficients = vec![0u8; (degree + 1) as usize];
         coefficients[0] = intercept;
 
