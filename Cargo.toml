@@ -1,0 +1,16 @@
+[package]
+name = "shamir-rs"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
+description = "A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)"
+
+
+[dependencies]
+rand = { version = "0.10", features = ["sys_rng"] }
+
+[dev-dependencies]
+dotenv = "0.15.0"
+env_logger = "0.11.10"
+log = "0.4.29"
