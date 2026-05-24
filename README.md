@@ -4,6 +4,19 @@ A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (original
 ## Original Source Code
 [`github.com/hashicorp/vault/shamir/shamir.go`](https://github.com/hashicorp/vault/blob/v2.0.1/shamir/shamir.go)
 
+# Getting Started
+```rust
+use shamir_rs::{shamir_split, shamir_combine};
+
+let secret_key = b"top secret security key";
+
+let secret_shares = shamir_split(secret_key, 5, 2).unwrap();
+
+let recovered = shamir_combine(&secret_shares[0..3]).unwrap();
+
+assert_eq!(secret_key.to_vec(), recovered);
+```
+
 
 # Development & Testing
 
@@ -31,7 +44,7 @@ Or use the `coverage-report` alias configured in `.cargo/config.toml`
 cargo coverage-report
 ```
 
-## License
+# License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 
 MIT License

@@ -1,0 +1,37 @@
+name: Run Unit/Integration tests
+
+on:
+  # push:
+  #   branches: [ "main", "develop" ]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  tests:
+    name: Run unit tests + coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Run tests with coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+
+      # - name: Upload coverage reports to Codecov
+      #   uses: codecov/codecov-action@v6
+      #   env:
+      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

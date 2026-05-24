@@ -31,6 +31,20 @@ pub enum ShamirError {
 /// the secret. The parts and threshold must be at least 2, and less
 /// than 256. The returned shares are each one byte longer than the secret
 /// as they attach a tag used to reconstruct the secret.
+///
+/// # Examples
+///
+/// ```
+/// use shamir_rs::{shamir_split, shamir_combine};
+///
+/// let secret_key = b"top secret security key";
+///
+/// let secret_shares = shamir_split(secret_key, 5, 2).expect("valid params");
+///
+/// let recovered = shamir_combine(&secret_shares[0..3]).expect("valid shares");
+///
+/// assert_eq!(secret_key.to_vec(), recovered);
+/// ```
 pub fn shamir_split(
     secret: &[u8],
     parts: usize,
