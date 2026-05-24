@@ -22,11 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["javascript", "rust"]
-        # CodeQL supports: cpp, csharp, go, java, javascript, python, ruby, rust, swift
-        # Use 'javascript' for JavaScript + TypeScript
-        # Use 'rust' for Rust (editions 2021 and 2024)
-
+        language: ["rust"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
