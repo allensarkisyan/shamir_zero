@@ -11,7 +11,7 @@ Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally
 ![Crates.io Version](https://img.shields.io/crates/v/shamir_zero)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 ![Last Commit](https://img.shields.io/github/last-commit/allensarkisyan/shamir_zero)
-[![CodeQL](https://github.com/allensarkisyan/shamir-zero/actions/workflows/codeql.yml/badge.svg)](https://github.com/allensarkisyan/shamir-zero/actions/workflows/codeql.yml)
+[![CodeQL](https://github.com/allensarkisyan/shamir_zero/actions/workflows/codeql.yml/badge.svg)](https://github.com/allensarkisyan/shamir_zero/actions/workflows/codeql.yml)
 ![GitHub issues](https://img.shields.io/github/issues/allensarkisyan/shamir_zero)
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/allensarkisyan/shamir_zero/tests.yml?label=tests)
 [![codecov](https://codecov.io/gh/allensarkisyan/shamir_zero/graph/badge.svg?token=CMZZBK817L)](https://codecov.io/gh/allensarkisyan/shamir_zero)
