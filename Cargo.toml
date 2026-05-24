@@ -6,7 +6,7 @@ license = "MIT"
 authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
 repository = "https://github.com/allensarkisyan/shamir_zero"
 readme = "README.md"
-keywords = ["cryptography", "shamir", "secret-sharing", "sss", "threshold-cryptography"]
+keywords = ["cryptography", "shamir", "secret-sharing", "sss", "threshold"]
 categories = ["cryptography", "security", "mathematics", "algorithms"]
 description = """
 A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
