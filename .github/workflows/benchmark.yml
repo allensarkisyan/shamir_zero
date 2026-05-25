@@ -44,8 +44,9 @@ jobs:
 
       # Benchmark comparison + automatic PR comment
       - name: Compare benchmark results and comment on PR
+        if: github.event_name == 'pull_request'
         uses: boa-dev/criterion-compare-action@v3
         with:
-          benchName: "shamir_zero_benchmark"   # Must exactly match your criterion_group! name
+          benchName: "shamir_zero_benchmark"
           branchName: ${{ github.base_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
