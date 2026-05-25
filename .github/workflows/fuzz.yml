@@ -37,14 +37,14 @@ jobs:
 
       # Build all fuzz targets (fast check that they compile)
       - name: Build fuzz targets
-        run: cargo fuzz build --dev
+        run: cargo +nightly fuzz build --dev
 
       # Run the roundtrip fuzzer for a short time on PRs / push
       # (60 seconds is enough to catch regressions without slowing CI)
       - name: Fuzz roundtrip (quick)
         if: github.event_name != 'schedule'
         run: |
-          cargo fuzz run shamir_roundtrip \
+          cargo +nightly fuzz run shamir_roundtrip \
             -- -max_total_time=60 \
             -timeout=5 \
             -rss_limit_mb=2048
@@ -53,7 +53,7 @@ jobs:
       - name: Fuzz roundtrip (deep)
         if: github.event_name == 'schedule'
         run: |
-          cargo fuzz run shamir_roundtrip \
+          cargo +nightly fuzz run shamir_roundtrip \
             -- -max_total_time=1800 \   # 30 minutes
             -timeout=10 \
             -rss_limit_mb=4096
