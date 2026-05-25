@@ -7,7 +7,7 @@ on:
     branches: ["main", "develop"]
   # Deeper fuzzing on main + nightly schedule
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   schedule:
     - cron: "0 3 * * 1" # Every Monday at 3 AM UTC
 
