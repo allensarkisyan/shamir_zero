@@ -1,0 +1,59 @@
+# .github/workflows/fuzz.yml
+name: Fuzzing (cargo-fuzz + libFuzzer)
+
+on:
+  # Run on every PR (quick smoke fuzzing)
+  pull_request:
+    branches: ["main", "develop"]
+  # Deeper fuzzing on main + nightly schedule
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: "0 3 * * 1" # Every Monday at 3 AM UTC
+
+jobs:
+  fuzz:
+    name: Fuzz Shamir Secret Sharing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install nightly Rust (required for libFuzzer)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: "fuzz"
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      # Build all fuzz targets (fast check that they compile)
+      - name: Build fuzz targets
+        run: cargo fuzz build --dev
+
+      # Run the roundtrip fuzzer for a short time on PRs / push
+      # (60 seconds is enough to catch regressions without slowing CI)
+      - name: Fuzz roundtrip (quick)
+        if: github.event_name != 'schedule'
+        run: |
+          cargo fuzz run shamir_roundtrip \
+            -- -max_total_time=60 \
+            -timeout=5 \
+            -rss_limit_mb=2048
+
+      # Longer fuzzing on the weekly schedule (deeper coverage)
+      - name: Fuzz roundtrip (deep)
+        if: github.event_name == 'schedule'
+        run: |
+          cargo fuzz run shamir_roundtrip \
+            -- -max_total_time=1800 \   # 30 minutes
+            -timeout=10 \
+            -rss_limit_mb=4096
