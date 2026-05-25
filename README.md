@@ -196,6 +196,61 @@ Or use the `coverage-report` alias configured in `.cargo/config.toml`
 cargo coverage-report
 ```
 
+## Benchmarks
+
+This crate ships with **four dedicated Criterion benchmarks** that thoroughly measure the performance of Shamir's Secret Sharing operations.
+
+### Available Benchmark Targets
+
+| Benchmark Target                        | Type                  | Secret Size     | Configurations | Description |
+|-----------------------------------------|-----------------------|-----------------|----------------|-----------|
+| `shamir_zero_benchmark`                 | Roundtrip             | 64 bytes        | 5              | Quick roundtrip (`split → combine`) on common small configurations |
+| `shamir_split_benchmark`                | Split only            | 64 bytes        | 5              | Pure `shamir_split` performance |
+| `shamir_combine_benchmark`              | Combine only          | 64 bytes        | 5              | Pure `shamir_combine` performance |
+| `shamir_zero_comprehensive_benchmark`   | **Full Roundtrip**    | 8 B – 32 KB     | 23             | **Most comprehensive** – tests every secret size + wide range of `(parts, threshold)` pairs (including edge cases up to 255-of-255) |
+
+### How to Run the Benchmarks
+
+```bash
+# Run all benchmarks
+cargo bench
+
+# Run a specific benchmark
+cargo bench --bench shamir_zero_benchmark
+cargo bench --bench shamir_split_benchmark
+cargo bench --bench shamir_combine_benchmark
+
+# Run the full comprehensive benchmark
+cargo bench --bench shamir_zero_comprehensive_benchmark
+```
+
+### Generate Beautiful HTML Reports
+
+```bash
+# Generate detailed interactive HTML report (highly recommended)
+cargo bench --bench shamir_zero_benchmark -- --save-baseline main
+
+# Compare against a previous baseline
+cargo bench --bench shamir_zero_benchmark -- --baseline main
+```
+
+The HTML reports will be saved in:
+
+```
+target/criterion/shamir_zero_benchmark_full/
+```
+
+Open `target/criterion/shamir_zero_benchmark_full/report/index.html` in your browser for interactive charts, throughput (MB/s), latency statistics, and flame graphs.
+
+### What the Comprehensive Benchmark Measures
+
+The `shamir_zero_comprehensive_benchmark` runs **276 individual measurements** (12 secret sizes × 23 configurations) and focuses on the **full roundtrip** (`shamir_split` followed immediately by `shamir_combine`).  
+This gives the most realistic view of end-to-end performance for real-world use cases.
+
+**Tip:** The numbers shown in the “Performance & Improvements” section of this README were generated from the comprehensive benchmark.
+
+
+
 # License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.

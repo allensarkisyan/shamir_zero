@@ -19,5 +19,23 @@ default = []
 rand = { version = "0.10", features = ["sys_rng"] }
 
 [dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
 env_logger = "0.11.10"
-log = "0.4.29"
+log = "0.4.30"
+
+
+[[bench]]
+name = "shamir_zero_benchmark"
+harness = false
+
+[[bench]]
+name = "shamir_split_benchmark"
+harness = false
+
+[[bench]]
+name = "shamir_combine_benchmark"
+harness = false
+
+[[bench]]
+name = "shamir_zero_comprehensive_benchmark"
+harness = false
