@@ -1,0 +1,22 @@
+[package]
+name = "shamir-zero-fuzz"
+version = "0.0.0"
+authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.shamir-zero]
+path = ".."
+
+[[bin]]
+name = "shamir_roundtrip"
+path = "fuzz_targets/shamir_roundtrip.rs"
+test = false
+doc = false
+bench = false
