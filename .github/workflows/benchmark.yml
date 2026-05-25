@@ -32,7 +32,7 @@ jobs:
 
       # Run the lightweight benchmark you requested
       - name: Run shamir_zero_benchmark
-        run: cargo bench --bench shamir_zero_benchmark
+        run: cargo bench --bench shamir_zero_benchmark -- --save-baseline current
 
       # Upload full benchmark report (HTML + raw data) as artifact
       - name: Upload benchmark results as artifact
@@ -43,14 +43,11 @@ jobs:
           retention-days: 30
 
       # Benchmark comparison + automatic PR comment
-      - name: Post benchmark comparison comment
-        uses: rhysd/github-action-benchmark@v1
+      - name: Compare benchmark results and comment on PR
+        uses: boa-dev/criterion-compare-action@v3
         with:
-          name: "shamir_zero_benchmark"
-          tool: "cargo"
-          output-file-path: "target/criterion/shamir_zero_benchmark/estimates.json"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          bench-name: "shamir_zero_benchmark"   # Must exactly match your criterion_group! name
+          token: ${{ secrets.GITHUB_TOKEN }}
+          comment-title: "📊 Benchmark Results"
           comment-always: true
-          alert-threshold: "150%" # Alert if any benchmark regresses >50%
-          fail-on-alert: false
-          summary-always: true
+          alert-threshold: "150%"   # Alert if any benchmark regresses more than 50%
