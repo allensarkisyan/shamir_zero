@@ -11,7 +11,6 @@ mod shamir_tests {
     }
 
     fn init() {
-        dotenv::dotenv().ok();
         let _ = env_logger::try_init_from_env(env_logger::Env::new().default_filter_or("info"));
     }
 
@@ -105,11 +104,11 @@ mod shamir_tests {
 
                 let subset = vec![shares[i].clone(), shares[j].clone()];
 
-                log::info!("combined: {:?}", subset);
+                log::debug!("combined: {:?}", subset);
 
                 let reconstructed = shamir_combine(&subset).unwrap();
 
-                log::info!("reconstructed: {:?}", reconstructed);
+                log::debug!("reconstructed: {:?}", reconstructed);
 
                 assert_eq!(
                     key.to_vec(),
