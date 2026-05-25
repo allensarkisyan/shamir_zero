@@ -123,4 +123,38 @@ mod shamir_tests {
 
         log::info!("Tested key permutations: {:?}", permutations);
     }
+
+    #[test]
+    fn test_split_and_combine_data_types() {
+        let secret = b"0xdeadbeef";
+        let shares = shamir_split(secret, 10, 5).unwrap();
+        let recovered = shamir_combine(&shares[2..7]).unwrap(); // any 5 shares
+        assert_eq!(secret.to_vec(), recovered);
+
+        let secret = "0xcafe".to_string();
+        let shares = shamir_split(secret.as_bytes(), 7, 4).unwrap();
+        let recovered_bytes = shamir_combine(&shares[0..4]).unwrap();
+        let recovered = String::from_utf8(recovered_bytes).unwrap();
+        assert_eq!(secret, recovered);
+
+        let secret: Vec<u8> = vec![0x01, 0x02, 0x03, 0xFF, 0xAA];
+        let shares = shamir_split(&secret, 8, 3).unwrap();
+        let recovered = shamir_combine(&shares[3..6]).unwrap();
+        assert_eq!(secret, recovered);
+
+        let secret: [u8; 32] = [0x42; 32]; // 256-bit key
+        let shares = shamir_split(&secret, 6, 4).unwrap();
+
+        let recovered: Vec<u8> = shamir_combine(&shares[1..5]).unwrap();
+        let recovered_array: [u8; 32] = recovered.try_into().unwrap();
+        assert_eq!(secret, recovered_array);
+
+        let number: u128 = 12345678901234567890;
+        let secret_bytes = number.to_le_bytes();
+
+        let shares = shamir_split(&secret_bytes, 5, 3).unwrap();
+        let recovered_bytes = shamir_combine(&shares[0..3]).unwrap();
+        let recovered_number = u128::from_le_bytes(recovered_bytes.try_into().unwrap());
+        assert_eq!(number, recovered_number);
+    }
 }
