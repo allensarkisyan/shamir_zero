@@ -1,8 +1,8 @@
 use crate::math::{Polynomial, interpolate_polynomial};
 use rand::seq::SliceRandom;
-use rand::{TryRng, rngs::SysRng};
+use rand::{TryCryptoRng, TryRng, rngs::SysRng};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShamirError {
     /// `parts` cannot be less than `threshold`.
     PartsLessThanThresholdLength,
@@ -20,10 +20,20 @@ pub enum ShamirError {
     DuplicatePartDetected,
     /// Less than two `parts` cannot be used to reconstruct the `secret`.
     RequiredMinimumParts,
-    // `parts` must be at least two bytes.
+    /// `parts` must be at least two bytes.
     MinimumPartByteLength,
-    // All `parts` must be the same length.
+    /// All `parts` must be the same length.
     PartsLengthMismatch,
+    /// Polynomial interpolation failed
+    InterpolationFailed,
+}
+
+fn poly_for_byte<R: TryCryptoRng>(
+    secret_byte: u8,
+    degree: u8,
+    rng: &mut R,
+) -> Result<Polynomial, ShamirError> {
+    Polynomial::new(secret_byte, degree, rng).map_err(|_| ShamirError::FailedToGeneratePolynomial)
 }
 
 /// Split takes an arbitrarily long secret and generates a `parts`
@@ -75,9 +85,10 @@ pub fn shamir_split(
         shares.push(share);
     }
 
+    let mut csprng = SysRng;
+
     for (byte_idx, &secret_byte) in secret.iter().enumerate() {
-        let p = Polynomial::new(secret_byte, degree)
-            .map_err(|e| ShamirError::FailedToGeneratePolynomial)?;
+        let p = poly_for_byte(secret_byte, degree, &mut csprng)?;
 
         // Evaluate at every x using the fast Horner `evaluate`
         for (share_idx, share) in shares.iter_mut().enumerate() {
@@ -131,7 +142,8 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
             y_samples[i] = part[byte_idx];
         }
 
-        secret[byte_idx] = interpolate_polynomial(&x_samples, &y_samples, 0);
+        secret[byte_idx] = interpolate_polynomial(&x_samples, &y_samples, 0)
+            .map_err(|_| ShamirError::InterpolationFailed)?;
     }
 
     Ok(secret)
