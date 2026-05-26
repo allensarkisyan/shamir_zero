@@ -91,7 +91,7 @@ jobs:
       # === Trusted Publishing to crates.io ===
       - name: Authenticate with crates.io (Trusted Publishing)
         id: auth
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@b7e9a28eded4986ec6b1fa40eeee8f8f165559ec # v1.0.3
 
       - name: Publish to crates.io
         run: cargo publish --verbose --locked
@@ -99,11 +99,16 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
       # === Cryptographic attestation (Sigstore/SLSA/GitHub provenance + SBOM) ===
-      - name: Attest build provenance and SBOM
+      - name: Attest SBOM (CycloneDX)
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
           subject-path: "target/package/${{ steps.meta.outputs.crate_name }}-${{ steps.meta.outputs.crate_version }}.crate"
           sbom-path: "target/sbom/sbom.cdx.json"
+
+      - name: Attest SLSA Provenance
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
+        with:
+          subject-path: "target/package/${{ steps.meta.outputs.crate_name }}-${{ steps.meta.outputs.crate_version }}.crate"
 
       # === Create GitHub Release (only on tag push) ===
       - name: Create GitHub Release
