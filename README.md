@@ -249,7 +249,24 @@ This gives the most realistic view of end-to-end performance for real-world use 
 
 **Tip:** The numbers shown in the “Performance & Improvements” section of this README were generated from the comprehensive benchmark.
 
+<br />
 
+## Verifying Release Integrity
+
+All releases are cryptographically attested using **Sigstore** and logged to the public Rekor transparency log.
+
+### Verify a release
+
+```bash
+# 1. Download the .crate
+gh release download -R allensarkisyan/shamir_zero --pattern "shamir-zero-*.crate"
+```
+
+```bash
+# 2. Verify the attestation (includes provenance + SBOM)
+gh attestation verify shamir-zero-*.crate -R allensarkisyan/shamir_zero \
+  --predicate-type "https://cyclonedx.org/bom"
+```
 
 # License
 

@@ -1,6 +1,6 @@
 [package]
 name = "shamir-zero"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 license = "MIT"
 authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
