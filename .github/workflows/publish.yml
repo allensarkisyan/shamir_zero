@@ -95,7 +95,8 @@ jobs:
         uses: sigstore/cosign-installer@v3
       - name: Cosign sign the crate
         run: |
-          cosign sign --keyless --yes --bundle target/package/shamir-zero-*.crate.sig \
+          cosign sign --yes \
+            --bundle target/package/shamir-zero-*.crate.sig \
             target/package/shamir-zero-*.crate
 
       # === Create GitHub Release (only on tag push) ===
