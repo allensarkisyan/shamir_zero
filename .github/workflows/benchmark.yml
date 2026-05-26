@@ -4,8 +4,7 @@ on:
   pull_request:
     branches: ["main", "develop"]
   push:
-    # TODO: REMOVE `feature/*`
-    branches: ["main", "develop", "feature/*"]
+    branches: ["main", "develop"]
 
 permissions:
   contents: read
