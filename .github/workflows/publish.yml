@@ -92,7 +92,7 @@ jobs:
 
       # === Sign the .crate with cosign (keyless + Sigstore) ===
       - name: Sign .crate with cosign (keyless)
-        uses: sigstore/cosign-installer@f1ad3ee952313be5d74a49d67ba0aa8d0d5e351f #v3
+        uses: sigstore/cosign-installer@v3
       - name: Cosign sign the crate
         run: |
           cosign sign --keyless --yes --bundle target/package/shamir-zero-*.crate.sig \
