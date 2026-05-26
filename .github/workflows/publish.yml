@@ -95,7 +95,7 @@ jobs:
 
       # === Publish to crates.io ===
       - name: Publish to crates.io
-        run: cargo publish --verbose --no-verify
+        run: cargo publish --verbose --no-verify --allow-dirty
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
