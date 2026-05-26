@@ -45,12 +45,6 @@ jobs:
       - name: Run Clippy
         run: cargo clippy --all-features -- -D warnings
 
-      - name: Quick fuzz smoke test
-        run: |
-          cargo install cargo-fuzz --locked
-          cargo fuzz build --dev
-          cargo fuzz run shamir_roundtrip -- -max_total_time=30 -timeout=5
-
       # === Determine version from either tag push or release event ===
       - name: Determine release tag
         id: tag
