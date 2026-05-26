@@ -1,0 +1,52 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+  push:
+    # TODO: REMOVE `feature/*`
+    branches: ["main", "develop", "feature/*"]
+
+permissions:
+  contents: read
+  pull-requests: write # Required to comment on the PR
+
+jobs:
+  benchmark:
+    name: Run shamir_zero_benchmark + Compare
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      # Run the lightweight benchmark you requested
+      - name: Run shamir_zero_benchmark
+        run: cargo bench --bench shamir_zero_benchmark -- --save-baseline current
+
+      # Upload full benchmark report (HTML + raw data) as artifact
+      - name: Upload benchmark results as artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-results
+          path: target/criterion
+          retention-days: 30
+
+      # Benchmark comparison + automatic PR comment
+      - name: Compare benchmark results and comment on PR
+        if: github.event_name == 'pull_request'
+        uses: boa-dev/criterion-compare-action@v3
+        with:
+          benchName: "shamir_zero_benchmark"
+          branchName: ${{ github.base_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}

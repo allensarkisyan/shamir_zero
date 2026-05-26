@@ -1,17 +1,34 @@
-use rand::{TryRng, rngs::SysRng};
+use rand::{TryCryptoRng, TryRng, rngs::SysRng};
 
 /// Represents a polynomial of arbitrary degree over GF(2^8)
 pub(crate) struct Polynomial {
     coefficients: Vec<u8>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FieldError {
+    DegreeTooLarge,
+    RngFailure,
+    InvalidInterpolationInput,
+    DuplicateSampleX,
+}
+
 impl Polynomial {
     /// Constructs a random polynomial of the given degree with the provided intercept value.
-    pub fn new(intercept: u8, degree: u8) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut coefficients = vec![0u8; (degree + 1) as usize];
+    pub fn new<R: TryCryptoRng>(
+        intercept: u8,
+        degree: u8,
+        rng: &mut R,
+    ) -> Result<Self, FieldError> {
+        let len = (degree as usize)
+            .checked_add(1)
+            .ok_or(FieldError::DegreeTooLarge)?;
+        let mut coefficients = vec![0u8; len];
         coefficients[0] = intercept;
 
-        SysRng.try_fill_bytes(&mut coefficients[1..]).ok();
+        rng.try_fill_bytes(&mut coefficients[1..])
+            .map_err(|_| FieldError::RngFailure)?;
+
         Ok(Polynomial { coefficients })
     }
 
@@ -104,25 +121,37 @@ pub(crate) const fn inverse(a: u8) -> u8 {
 
 /// Divides two numbers in GF(2^8)
 #[inline(always)]
-pub(crate) const fn div(a: u8, b: u8) -> u8 {
+pub(crate) fn div(a: u8, b: u8) -> Option<u8> {
     if b == 0 {
-        return 0;
+        return None;
     }
-
-    mult(a, inverse(b))
+    Some(mult(a, inverse(b)))
 }
 
 /// Takes N sample points and returns the value at a given x using Lagrange interpolation over GF(2^8).
 #[inline(always)]
-pub(crate) fn interpolate_polynomial(x_samples: &[u8], y_samples: &[u8], x: u8) -> u8 {
+pub(crate) fn interpolate_polynomial(
+    x_samples: &[u8],
+    y_samples: &[u8],
+    x: u8,
+) -> Result<u8, FieldError> {
     let n = x_samples.len();
 
-    if n != y_samples.len() || n == 0 {
-        return 0;
+    if n == 0 || n != y_samples.len() {
+        return Err(FieldError::InvalidInterpolationInput);
     }
 
     if n == 1 {
-        return y_samples[0];
+        return Ok(y_samples[0]);
+    }
+
+    // Defensive duplicate check (should already be prevented by caller)
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if x_samples[i] == x_samples[j] {
+                return Err(FieldError::DuplicateSampleX);
+            }
+        }
     }
 
     // Precompute delta_inv[i]
@@ -132,7 +161,7 @@ pub(crate) fn interpolate_polynomial(x_samples: &[u8], y_samples: &[u8], x: u8) 
         let xi = x_samples[i];
         let mut prod = 1u8;
 
-        for j in 0..n {
+        for (j, _) in x_samples.iter().enumerate().take(n) {
             if i != j {
                 prod = mult(prod, xi ^ x_samples[j]);
             }
@@ -146,7 +175,7 @@ pub(crate) fn interpolate_polynomial(x_samples: &[u8], y_samples: &[u8], x: u8) 
     for i in 0..n {
         let mut num = 1u8;
 
-        for j in 0..n {
+        for (j, _) in x_samples.iter().enumerate().take(n) {
             if i != j {
                 num = mult(num, x ^ x_samples[j]);
             }
@@ -157,7 +186,7 @@ pub(crate) fn interpolate_polynomial(x_samples: &[u8], y_samples: &[u8], x: u8) 
         result ^= mult(y_samples[i], basis);
     }
 
-    result
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -179,21 +208,23 @@ mod shamir_math_tests {
 
     #[test]
     fn test_field_divide() {
-        assert_eq!(div(0, 7), 0);
-        assert_eq!(div(3, 3), 1);
-        assert_eq!(div(6, 3), 2);
-        assert_eq!(div(12, 0), 0);
+        assert_eq!(div(0, 7), Some(0));
+        assert_eq!(div(3, 3), Some(1));
+        assert_eq!(div(6, 3), Some(2));
+        assert_eq!(div(12, 0), None);
     }
 
     #[test]
     fn test_polynomial_random() {
-        let p = Polynomial::new(42, 2).unwrap();
+        let mut rng = SysRng;
+        let p = Polynomial::new(42, 2, &mut rng).unwrap();
         assert_eq!(p.coefficients[0], 42);
     }
 
     #[test]
     fn test_polynomial_eval() {
-        let p = Polynomial::new(42, 1).unwrap();
+        let mut rng = SysRng;
+        let p = Polynomial::new(42, 1, &mut rng).unwrap();
         assert_eq!(p.evaluate(0), 42);
         let exp = add(42, mult(1, p.coefficients[1]));
         assert_eq!(p.evaluate(1), exp);
@@ -202,22 +233,32 @@ mod shamir_math_tests {
     #[test]
     fn test_interpolate() {
         let out = interpolate_polynomial(&[0, 1, 2], &[1], 0);
-        assert_eq!(out, 0);
+        assert!(out.is_err());
 
         let out = interpolate_polynomial(&[], &[], 3);
-        assert_eq!(out, 0);
+        assert!(out.is_err());
 
         let out = interpolate_polynomial(&[8], &[11], 3);
-        assert_eq!(out, 11);
+        assert_eq!(out, Ok(11));
+
+        let out = interpolate_polynomial(&[], &[], 0);
+        assert_eq!(out, Err(FieldError::InvalidInterpolationInput));
+
+        let out = interpolate_polynomial(&[1, 2], &[10], 0);
+        assert_eq!(out, Err(FieldError::InvalidInterpolationInput));
+
+        let out = interpolate_polynomial(&[5, 5], &[10, 20], 0);
+        assert_eq!(out, Err(FieldError::DuplicateSampleX));
     }
 
     #[test]
     fn test_interpolate_rand() {
         for i in 0..=255u8 {
-            let p = Polynomial::new(i, 2).unwrap();
+            let mut rng = SysRng;
+            let p = Polynomial::new(i, 2, &mut rng).unwrap();
             let x_vals = [1u8, 2, 3];
             let y_vals = [p.evaluate(1), p.evaluate(2), p.evaluate(3)];
-            let out = interpolate_polynomial(&x_vals, &y_vals, 0);
+            let out = interpolate_polynomial(&x_vals, &y_vals, 0).unwrap();
             assert_eq!(out, i, "Failed for intercept {}", i);
         }
     }
