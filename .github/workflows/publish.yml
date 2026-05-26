@@ -1,0 +1,122 @@
+name: Publish to crates.io
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish crate to crates.io
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      # === Pre-publish quality gates ===
+      - name: Run tests
+        run: cargo test --all-features --verbose
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-features -- -D warnings
+
+      - name: Quick fuzz smoke test
+        run: |
+          cargo install cargo-fuzz --locked
+          cargo fuzz build --dev
+          cargo fuzz run shamir_roundtrip -- -max_total_time=30 -timeout=5
+
+      # === Determine version from either tag push or release event ===
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using version: $TAG"
+
+      # === Verify Cargo.toml version exactly matches the tag/release ===
+      - name: Verify crate version matches tag
+        run: |
+          CRATE_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1 | tr -d ' ')
+          GIT_TAG="${{ steps.tag.outputs.tag }}"
+
+          echo "Cargo.toml version : v${CRATE_VERSION}"
+          echo "Release tag        : ${GIT_TAG}"
+
+          if [ "v${CRATE_VERSION}" != "${GIT_TAG}" ]; then
+            echo "❌ Version mismatch! Cargo.toml must match the tag exactly."
+            exit 1
+          fi
+          echo "✅ Version match confirmed"
+
+      # === Publish to crates.io ===
+      - name: Publish to crates.io
+        run: cargo publish --verbose
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      # === Package the .crate file ===
+      - name: Package .crate file
+        run: cargo package --locked
+
+      # === Generate CycloneDX SBOM (standard format in 2026) ===
+      - name: Generate CycloneDX SBOM
+        run: |
+          cargo install cargo-sbom --locked
+          cargo sbom --output-format=cyclone_dx_json_1_6 > sbom.cdx.json
+
+      # === Create GitHub Release (only on tag push) ===
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
+        with:
+          name: ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            target/package/*.crate
+            sbom.cdx.json
+
+      # === Attach .crate + SBOM to existing release (only on release published) ===
+      - name: Upload .crate and SBOM to existing GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
+        with:
+          files: |
+            target/package/*.crate
+            sbom.cdx.json
+
+      # === Cryptographic attestation (Sigstore/SLSA provenance + SBOM) ===
+      - name: Attest build provenance and SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 #v4
+        with:
+          subject-path: "target/package/*.crate"
+          sbom-path: "sbom.cdx.json"
