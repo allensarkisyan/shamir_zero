@@ -84,11 +84,19 @@ jobs:
       - name: Package .crate file
         run: cargo package --locked
 
-      # === Generate CycloneDX SBOM (standard format in 2026) ===
+      # === Generate CycloneDX SBOM ===
       - name: Generate CycloneDX SBOM
         run: |
           cargo install cargo-sbom --locked
           cargo sbom --output-format=cyclone_dx_json_1_6 > sbom.cdx.json
+
+      # === Sign the .crate with cosign (keyless + Sigstore) ===
+      - name: Sign .crate with cosign (keyless)
+        uses: sigstore/cosign-installer@f1ad3ee952313be5d74a49d67ba0aa8d0d5e351f #v3
+      - name: Cosign sign the crate
+        run: |
+          cosign sign --keyless --yes --bundle target/package/shamir-zero-*.crate.sig \
+            target/package/shamir-zero-*.crate
 
       # === Create GitHub Release (only on tag push) ===
       - name: Create GitHub Release
@@ -102,18 +110,20 @@ jobs:
           generate_release_notes: true
           files: |
             target/package/*.crate
+            target/package/*.crate.sig
             sbom.cdx.json
 
-      # === Attach .crate + SBOM to existing release (only on release published) ===
-      - name: Upload .crate and SBOM to existing GitHub Release
+      # === Attach files to existing release ===
+      - name: Upload .crate, signature and SBOM to existing GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
         with:
           files: |
             target/package/*.crate
+            target/package/*.crate.sig
             sbom.cdx.json
 
-      # === Cryptographic attestation (Sigstore/SLSA provenance + SBOM) ===
+      # === Cryptographic attestation (Sigstore/SLSA/GitHub provenance + SBOM) ===
       - name: Attest build provenance and SBOM
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 #v4
         with:
