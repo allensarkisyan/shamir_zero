@@ -130,7 +130,6 @@ pub(crate) fn div(a: u8, b: u8) -> Option<u8> {
 
 /// Takes N sample points and returns the value at a given x using Lagrange interpolation over GF(2^8).
 #[inline(always)]
-#[inline(always)]
 pub(crate) fn interpolate_polynomial(
     x_samples: &[u8],
     y_samples: &[u8],
@@ -162,14 +161,10 @@ pub(crate) fn interpolate_polynomial(
         let xi = x_samples[i];
         let mut prod = 1u8;
 
-        for j in 0..n {
+        for (j, _) in x_samples.iter().enumerate().take(n) {
             if i != j {
                 prod = mult(prod, xi ^ x_samples[j]);
             }
-        }
-
-        if prod == 0 {
-            return Err(FieldError::DuplicateSampleX);
         }
 
         delta_inv[i] = inverse(prod);
@@ -180,7 +175,7 @@ pub(crate) fn interpolate_polynomial(
     for i in 0..n {
         let mut num = 1u8;
 
-        for j in 0..n {
+        for (j, _) in x_samples.iter().enumerate().take(n) {
             if i != j {
                 num = mult(num, x ^ x_samples[j]);
             }
@@ -245,6 +240,15 @@ mod shamir_math_tests {
 
         let out = interpolate_polynomial(&[8], &[11], 3);
         assert_eq!(out, Ok(11));
+
+        let out = interpolate_polynomial(&[], &[], 0);
+        assert_eq!(out, Err(FieldError::InvalidInterpolationInput));
+
+        let out = interpolate_polynomial(&[1, 2], &[10], 0);
+        assert_eq!(out, Err(FieldError::InvalidInterpolationInput));
+
+        let out = interpolate_polynomial(&[5, 5], &[10, 20], 0);
+        assert_eq!(out, Err(FieldError::DuplicateSampleX));
     }
 
     #[test]

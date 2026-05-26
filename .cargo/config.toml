@@ -3,6 +3,8 @@ RUST_BACKTRACE="full"
 
 [alias]
 coverage-report = "tarpaulin --follow-exec --timeout 60 --branch --out Html --output-dir ./tmp/coverage"
-clippy-log = "clippy --all-targets &> ./tmp/clippy.log"
-fuzz_shamir = "fuzz run shamir_roundtrip"
+clippy-log = "clippy --all-targets"
+benchmark-save = "bench --bench shamir_zero_benchmark -- --save-baseline main"
+benchmark-compare = "bench --bench shamir_zero_benchmark -- --baseline main"
+fuzz-shamir = "fuzz run shamir_roundtrip"
 fuzz_5_mins = "fuzz run shamir_roundtrip -- -max_total_time=300"
