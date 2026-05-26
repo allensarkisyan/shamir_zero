@@ -74,12 +74,6 @@ jobs:
           fi
           echo "✅ Version match confirmed"
 
-      # === Publish to crates.io ===
-      - name: Publish to crates.io
-        run: cargo publish --verbose
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
       # === Package the .crate file ===
       - name: Package .crate file
         run: cargo package --locked
@@ -98,6 +92,12 @@ jobs:
           cosign sign --yes \
             --bundle target/package/shamir-zero-*.crate.sig \
             target/package/shamir-zero-*.crate
+
+      # === Publish to crates.io ===
+      - name: Publish to crates.io
+        run: cargo publish --verbose --no-verify
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       # === Create GitHub Release (only on tag push) ===
       - name: Create GitHub Release
