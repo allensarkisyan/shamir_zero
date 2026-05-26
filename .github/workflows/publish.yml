@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - "v[0-9]*"
-  release:
-    types: [published]
-
 permissions:
   contents: read
 
@@ -47,32 +44,28 @@ jobs:
       - name: Run tests
         run: cargo test --all-features --verbose
 
-      # === Determine version from either tag push or release event ===
-      - name: Determine release tag
-        id: tag
+      # === Extract crate name/version reliably (no hardcoding) ===
+      - name: Extract crate metadata
+        id: meta
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            TAG="${{ github.event.release.tag_name }}"
-          fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Using version: $TAG"
+          CRATE_NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          CRATE_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          GIT_TAG="${GITHUB_REF#refs/tags/}"
 
-      # === Verify Cargo.toml version exactly matches the tag/release ===
-      - name: Verify crate version matches tag
-        run: |
-          CRATE_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1 | tr -d ' ')
-          GIT_TAG="${{ steps.tag.outputs.tag }}"
+          echo "crate_name=$CRATE_NAME" >> $GITHUB_OUTPUT
+          echo "crate_version=$CRATE_VERSION" >> $GITHUB_OUTPUT
+          echo "git_tag=$GIT_TAG" >> $GITHUB_OUTPUT
 
-          echo "Cargo.toml version : v${CRATE_VERSION}"
-          echo "Release tag        : ${GIT_TAG}"
+          echo "Crate name    : $CRATE_NAME"
+          echo "Crate version : v$CRATE_VERSION"
+          echo "Git tag       : $GIT_TAG"
 
-          if [ "v${CRATE_VERSION}" != "${GIT_TAG}" ]; then
-            echo "❌ Version mismatch! Cargo.toml must match the tag exactly."
+          if [ "v$CRATE_VERSION" != "$GIT_TAG" ]; then
+            echo "❌ Version mismatch! Cargo.toml version must match the tag exactly."
             exit 1
           fi
           echo "✅ Version match confirmed"
+        shell: bash
 
       # === Package the .crate file ===
       - name: Package .crate file
@@ -81,91 +74,48 @@ jobs:
       # === Generate CycloneDX SBOM ===
       - name: Generate CycloneDX SBOM
         run: |
+          mkdir -p target/sbom
           cargo install cargo-sbom --locked
-          cargo sbom --output-format=cyclone_dx_json_1_6 > sbom.cdx.json
+          cargo sbom --output-format=cyclone_dx_json_1_6 > target/sbom/sbom.cdx.json
 
       # === Sign the .crate with cosign (keyless + Sigstore) ===
       - name: Sign .crate with cosign (keyless)
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
       - name: Cosign sign the crate
         run: |
-          cosign sign-blob --yes \
-            --bundle target/package/shamir-zero-*.crate.sigstore.json \
-            target/package/shamir-zero-*.crate
+          CRATE_FILE="target/package/${{ steps.meta.outputs.crate_name }}-${{ steps.meta.outputs.crate_version }}.crate"
+          cosign sign-blob --yes --bundle "${CRATE_FILE}.sigstore.json" "$CRATE_FILE"
+        env:
+          COSIGN_EXPERIMENTAL: 1
 
-      # === Publish to crates.io ===
+      # === Trusted Publishing to crates.io ===
+      - name: Authenticate with crates.io (Trusted Publishing)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
       - name: Publish to crates.io
-        run: cargo publish --verbose --no-verify --allow-dirty
+        run: cargo publish --verbose --locked
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
-      # === Download versioned attestation bundle ===
-      - name: Download attestation bundle
-        id: download-attestation
-        run: |
-          # Download the attestation (creates a sha256-*.jsonl file)
-          gh attestation download "target/package/*.crate" -R ${{ github.repository }}
-
-          # Find the downloaded file and give it a nice versioned name
-          ATTESTATION_FILE=$(ls target/package/shamir-zero-*.crate.sigstore.json 2>/dev/null || echo "")
-          if [ -z "$ATTESTATION_FILE" ]; then
-            ATTESTATION_FILE=$(ls sha256-*.jsonl 2>/dev/null | head -n1)
-          fi
-          if [ -n "$ATTESTATION_FILE" ]; then
-            FILENAME="shamir-zero-${{ steps.tag.outputs.tag }}-attestation.jsonl"
-            mv "$ATTESTATION_FILE" "target/package/$FILENAME"
-            echo "filename=$FILENAME" >> $GITHUB_OUTPUT
-            echo "Downloaded and renamed attestation to: $FILENAME"
-          else
-            echo "❌ No attestation bundle found!"
-            exit 1
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # === Verify the attestation ===
-      - name: Verify attestation
-        run: |
-          CRATE_FILE="target/package/shamir-zero-${{ steps.tag.outputs.tag }}.crate"
-          BUNDLE_FILE="target/package/${{ steps.download-attestation.outputs.filename }}"
-
-          echo "Verifying: $CRATE_FILE"
-          echo "Using bundle: $BUNDLE_FILE"
-
-          gh attestation verify "$CRATE_FILE" --repo ${{ github.repository }} --bundle "$BUNDLE_FILE"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # === Cryptographic attestation (Sigstore/SLSA/GitHub provenance + SBOM) ===
+      - name: Attest build provenance and SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
+        with:
+          subject-path: "target/package/${{ steps.meta.outputs.crate_name }}-${{ steps.meta.outputs.crate_version }}.crate"
+          sbom-path: "target/sbom/sbom.cdx.json"
 
       # === Create GitHub Release (only on tag push) ===
       - name: Create GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
         with:
-          name: ${{ steps.tag.outputs.tag }}
-          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.meta.outputs.git_tag }}
+          tag_name: ${{ steps.meta.outputs.git_tag }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
-            target/package/*.crate
-            target/package/*.crate.sigstore.json
-            sbom.cdx.json
-            target/package/${{ steps.download-attestation.outputs.filename }}
-
-      # === Attach files to existing release ===
-      - name: Upload .crate, signature and SBOM to existing GitHub Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda #v3
-        with:
-          files: |
-            target/package/*.crate
-            target/package/*.crate.sigstore.json
-            sbom.cdx.json
-            target/package/${{ steps.download-attestation.outputs.filename }}
-
-      # === Cryptographic attestation (Sigstore/SLSA/GitHub provenance + SBOM) ===
-      - name: Attest build provenance and SBOM
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 #v4
-        with:
-          subject-path: "target/package/*.crate"
-          sbom-path: "sbom.cdx.json"
+            target/package/${{ steps.meta.outputs.crate_name }}-${{ steps.meta.outputs.crate_version }}.crate
+            target/package/${{ steps.meta.outputs.crate_name }}-${{ steps.meta.outputs.crate_version }}.crate.sigstore.json
+            target/sbom/sbom.cdx.json
