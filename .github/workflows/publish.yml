@@ -103,19 +103,36 @@ jobs:
       - name: Download attestation bundle
         id: download-attestation
         run: |
-          FILENAME="shamir-zero-${{ steps.tag.outputs.tag }}-attestation.jsonl"
-          gh attestation download "target/package/*.crate" \
-            --bundle-path "target/package/$FILENAME"
-          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+          # Download the attestation (creates a sha256-*.jsonl file)
+          gh attestation download "target/package/*.crate" -R ${{ github.repository }}
+
+          # Find the downloaded file and give it a nice versioned name
+          ATTESTATION_FILE=$(ls target/package/shamir-zero-*.crate.sigstore.json 2>/dev/null || echo "")
+          if [ -z "$ATTESTATION_FILE" ]; then
+            ATTESTATION_FILE=$(ls sha256-*.jsonl 2>/dev/null | head -n1)
+          fi
+          if [ -n "$ATTESTATION_FILE" ]; then
+            FILENAME="shamir-zero-${{ steps.tag.outputs.tag }}-attestation.jsonl"
+            mv "$ATTESTATION_FILE" "target/package/$FILENAME"
+            echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+            echo "Downloaded and renamed attestation to: $FILENAME"
+          else
+            echo "❌ No attestation bundle found!"
+            exit 1
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # === Verify the attestation ===
       - name: Verify attestation
         run: |
-          gh attestation verify "target/package/*.crate" \
-            --repo ${{ github.repository }} \
-            --bundle "target/package/${{ steps.download-attestation.outputs.filename }}"
+          CRATE_FILE="target/package/shamir-zero-${{ steps.tag.outputs.tag }}.crate"
+          BUNDLE_FILE="target/package/${{ steps.download-attestation.outputs.filename }}"
+
+          echo "Verifying: $CRATE_FILE"
+          echo "Using bundle: $BUNDLE_FILE"
+
+          gh attestation verify "$CRATE_FILE" --repo ${{ github.repository }} --bundle "$BUNDLE_FILE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
