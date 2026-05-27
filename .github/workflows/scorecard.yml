@@ -12,9 +12,9 @@ on:
   schedule:
     - cron: "19 3 * * 5"
   push:
-    branches: ["main", "develop"]
+    branches: ["main"]
   pull_request:
-    branches: ["main", "develop"]
+    branches: ["main"]
 
 # Declare default permissions as read only.
 permissions: read-all

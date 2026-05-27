@@ -115,8 +115,27 @@ const fn generate_inverse_table() -> [u8; 256] {
 const INV_TABLE: [u8; 256] = generate_inverse_table();
 
 /// Calculates the inverse of a number in GF(2^8) (a^254)
+///
+/// # Performance & Security
+///
+/// - **Default (enabled)**: Uses a compile-time 256-byte lookup table (`fast-inverse` feature).
+///   This is the recommended and fastest option.
+/// - **Without `fast-inverse`**: Falls back to the pure-arithmetic 11-multiplication chain
+///   (`inverse_11x`). Use `--no-default-features` only if you have an extremely strict
+///   "no lookup tables" policy.
+///
+/// Both implementations are constant-time and side-channel resistant because the
+/// input to `inverse` is always derived from **public** share IDs (x-coordinates).
+#[inline(always)]
 pub(crate) const fn inverse(a: u8) -> u8 {
-    INV_TABLE[a as usize]
+    #[cfg(feature = "fast-inverse")]
+    {
+        INV_TABLE[a as usize]
+    }
+    #[cfg(not(feature = "fast-inverse"))]
+    {
+        inverse_11x(a)
+    }
 }
 
 /// Divides two numbers in GF(2^8)
