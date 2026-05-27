@@ -6,10 +6,9 @@
     </picture>
 </p>
 
-![Crates.io Version](https://img.shields.io/crates/v/shamir_zero)
-[![Docs.rs](https://img.shields.io/docsrs/shamir_zero)](https://docs.rs/shamir_zero)
+[![Crates.io Version](https://img.shields.io/crates/v/shamir_zero)](https://crates.io/crates/shamir-zero)
+[![docs.rs](https://img.shields.io/docsrs/shamir-zero)](https://docs.rs/shamir_zero)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-![Last Commit](https://img.shields.io/github/last-commit/allensarkisyan/shamir_zero)
 [![CodeQL](https://github.com/allensarkisyan/shamir_zero/actions/workflows/codeql.yml/badge.svg)](https://github.com/allensarkisyan/shamir_zero/actions/workflows/codeql.yml)
 ![GitHub issues](https://img.shields.io/github/issues/allensarkisyan/shamir_zero)
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/allensarkisyan/shamir_zero/tests.yml?label=tests)
@@ -28,6 +27,8 @@ Split any secret into `n` shares such that any `k` (the threshold) can reconstru
 
 ## Features
 
+### `fast-inverse` (enabled by default)
+
 - Pure Rust, no `unsafe`, no dependencies beyond `rand`
 - Uses the latest `SysRng` (system CSPRNG) for perfect forward secrecy
 - Highly optimized polynomial evaluation with Horner's method
@@ -40,8 +41,32 @@ Split any secret into `n` shares such that any `k` (the threshold) can reconstru
 
 ```toml
 [dependencies]
-shamir_zero = "*"
+shamir-zero = { version = "0.1", features = ["fast-inverse"] } # default
+# or to explicitly disable:
+# shamir-zero = { version = "0.1", default-features = false }
 ```
+
+By default, `shamir-zero` uses a **compile-time 256-byte lookup table** for multiplicative inversion in GF(2^8).  
+
+**Why this is the recommended default:**
+- Dramatically faster reconstruction (`shamir_combine`) - often 2–5× faster than the pure-arithmetic version.
+- Still fully constant-time and side-channel safe.
+- The table index is derived exclusively from **public** share IDs (the x-coordinates), never from secret data.
+
+You can disable the lookup table (and use the slower but table-free arithmetic version) with:
+
+```bash
+cargo build --no-default-features
+```
+
+or in your `Cargo.toml`:
+
+```toml
+shamir-zero = { version = "0.1", default-features = false }
+```
+
+This option exists for ultra-paranoid embedded environments or academic "no lookup tables" requirements, but is unnecessary for almost all use cases.
+
 
 ## Quick Start
 

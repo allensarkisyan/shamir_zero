@@ -13,7 +13,8 @@ A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (original
 """
 
 [features]
-default = []
+default = ["fast-inverse"]
+fast-inverse = []
 
 [dependencies]
 rand = { version = "0.10", features = ["sys_rng"] }
