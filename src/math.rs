@@ -113,6 +113,8 @@ pub(crate) fn compute_lagrange_basis_at_zero(x_samples: &[u8], out: &mut [u8]) {
                 let num = mult(prod_all, inverse(xi));
                 let mut denom = 1u8;
 
+                #[allow(clippy::needless_range_loop)]
+                // Skip j == i because xi ^ xi = 0 in GF(256), which would zero the denominator product
                 for j in 0..n {
                     if i != j {
                         denom = mult(denom, xi ^ x_samples[j]);
