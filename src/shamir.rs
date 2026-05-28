@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (C) 2026 Allen Sarkisyan
 
-use crate::math::{Polynomial, compute_lagrange_basis_at_zero, mult};
-use rand::{TryCryptoRng, TryRng, rngs::SysRng};
+use crate::math::{compute_lagrange_basis_at_zero, mult};
+use rand::{TryRng, rngs::SysRng};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShamirError {
@@ -26,18 +26,8 @@ pub enum ShamirError {
     MinimumPartByteLength,
     /// All `parts` must be the same length.
     PartsLengthMismatch,
-    /// Polynomial interpolation failed
-    InterpolationFailed,
     /// x-value of a secret share cannot be 0
     InvalidShareXValue,
-}
-
-fn poly_for_byte<R: TryCryptoRng>(
-    secret_byte: u8,
-    degree: u8,
-    rng: &mut R,
-) -> Result<Polynomial, ShamirError> {
-    Polynomial::new(secret_byte, degree, rng).map_err(|_| ShamirError::FailedToGeneratePolynomial)
 }
 
 /// Split takes an arbitrarily long secret and generates a `parts`
@@ -75,9 +65,13 @@ pub fn shamir_split(
     }
 
     let n = secret.len();
-    let degree = (threshold - 1) as u8;
+    let degree = threshold - 1;
     let share_len = n + 1;
+    let total_random = n * degree;
+
     let mut shares = Vec::with_capacity(parts);
+    let mut random_coeffs = vec![0u8; total_random];
+    let mut rand_offset = 0usize;
 
     for i in 1..=parts {
         let mut share = vec![0u8; share_len];
@@ -85,16 +79,31 @@ pub fn shamir_split(
         shares.push(share);
     }
 
-    let mut csprng = SysRng;
+    // Bulk-generate all random coefficients
+    if total_random > 0 {
+        SysRng
+            .try_fill_bytes(&mut random_coeffs)
+            .map_err(|_| ShamirError::FailedToGeneratePolynomial)?;
+    }
 
     for (byte_idx, &secret_byte) in secret.iter().enumerate() {
-        let p = poly_for_byte(secret_byte, degree, &mut csprng)?;
+        let poly_randoms = &random_coeffs[rand_offset..rand_offset + degree];
 
-        // Evaluate at every x using the fast Horner `evaluate`
+        // Fully inlined Horner evaluation
         for (share_idx, share) in shares.iter_mut().enumerate() {
             let x = (share_idx + 1) as u8;
-            share[byte_idx] = p.evaluate(x);
+
+            let mut result = poly_randoms[degree - 1];
+
+            for k in (0..degree.saturating_sub(1)).rev() {
+                result = mult(result, x) ^ poly_randoms[k];
+            }
+
+            result = mult(result, x) ^ secret_byte;
+            share[byte_idx] = result;
         }
+
+        rand_offset += degree;
     }
 
     Ok(shares)
