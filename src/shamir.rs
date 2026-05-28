@@ -80,11 +80,10 @@ pub fn shamir_split(
     }
 
     // Bulk-generate all random coefficients
-    if total_random > 0 {
-        SysRng
-            .try_fill_bytes(&mut random_coeffs)
-            .map_err(|_| ShamirError::FailedToGeneratePolynomial)?;
-    }
+    // TODO: add feature flag for `rand` usage
+    SysRng
+        .try_fill_bytes(&mut random_coeffs)
+        .map_err(|_| ShamirError::FailedToGeneratePolynomial)?;
 
     for (byte_idx, &secret_byte) in secret.iter().enumerate() {
         let poly_randoms = &random_coeffs[rand_offset..rand_offset + degree];
