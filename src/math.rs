@@ -84,10 +84,6 @@ pub(crate) const fn mult(a: u8, b: u8) -> u8 {
 /// The inverse of `a` in GF(2^8) is `a^254`.
 #[inline(always)]
 const fn inverse_11x(a: u8) -> u8 {
-    if a == 0 {
-        return 0;
-    }
-
     let mut b = mult(a, a);
     let mut c = mult(a, b);
 

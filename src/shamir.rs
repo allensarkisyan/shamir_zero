@@ -28,6 +28,8 @@ pub enum ShamirError {
     PartsLengthMismatch,
     /// Polynomial interpolation failed
     InterpolationFailed,
+    /// x-value of a secret share cannot be 0
+    InvalidShareXValue,
 }
 
 fn poly_for_byte<R: TryCryptoRng>(
@@ -122,6 +124,9 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
             return Err(ShamirError::PartsLengthMismatch);
         }
         let x = part[share_len - 1];
+        if x == 0 {
+            return Err(ShamirError::InvalidShareXValue);
+        }
         if seen[x as usize] {
             return Err(ShamirError::DuplicatePartDetected);
         }
