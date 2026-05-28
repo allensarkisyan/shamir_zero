@@ -1,5 +1,7 @@
-use crate::math::{Polynomial, interpolate_polynomial};
-use rand::seq::SliceRandom;
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (C) 2026 Allen Sarkisyan
+
+use crate::math::{Polynomial, compute_lagrange_basis_at_zero, mult};
 use rand::{TryCryptoRng, TryRng, rngs::SysRng};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,16 +63,12 @@ pub fn shamir_split(
     threshold: usize,
 ) -> Result<Vec<Vec<u8>>, ShamirError> {
     if secret.is_empty() || !(2..=255).contains(&threshold) || parts < threshold || parts > 255 {
-        return Err(if secret.is_empty() {
-            ShamirError::EmptySecret
-        } else if threshold < 2 {
-            ShamirError::ThresholdLessThanMinimumLength
-        } else if threshold > 255 {
-            ShamirError::ThresholdExceedsMaximumLength
-        } else if parts < threshold {
-            ShamirError::PartsLessThanThresholdLength
-        } else {
-            ShamirError::PartsExceedMaximumLength
+        return Err(match () {
+            _ if secret.is_empty() => ShamirError::EmptySecret,
+            _ if threshold < 2 => ShamirError::ThresholdLessThanMinimumLength,
+            _ if threshold > 255 => ShamirError::ThresholdExceedsMaximumLength,
+            _ if parts < threshold => ShamirError::PartsLessThanThresholdLength,
+            _ => ShamirError::PartsExceedMaximumLength,
         });
     }
 
@@ -131,19 +129,17 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
         x_samples[i] = x;
     }
 
-    // Reuse this buffer for every byte
-    let mut y_samples = vec![0u8; n];
+    // Precompute Lagrange basis coefficients
+    let basis = compute_lagrange_basis_at_zero(&x_samples);
 
     let mut secret = vec![0u8; secret_len];
 
     for byte_idx in 0..secret_len {
-        // Fill y_samples for this byte position
+        let mut val = 0u8;
         for (i, part) in parts.iter().enumerate() {
-            y_samples[i] = part[byte_idx];
+            val ^= mult(part[byte_idx], basis[i]);
         }
-
-        secret[byte_idx] = interpolate_polynomial(&x_samples, &y_samples, 0)
-            .map_err(|_| ShamirError::InterpolationFailed)?;
+        secret[byte_idx] = val;
     }
 
     Ok(secret)

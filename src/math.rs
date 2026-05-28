@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (C) 2026 Allen Sarkisyan
+
 use rand::{TryCryptoRng, TryRng, rngs::SysRng};
 
 /// Represents a polynomial of arbitrary degree over GF(2^8)
@@ -180,9 +183,9 @@ pub(crate) fn interpolate_polynomial(
         let xi = x_samples[i];
         let mut prod = 1u8;
 
-        for (j, _) in x_samples.iter().enumerate().take(n) {
+        for (j, &xj) in x_samples.iter().enumerate() {
             if i != j {
-                prod = mult(prod, xi ^ x_samples[j]);
+                prod = mult(prod, xi ^ xj);
             }
         }
 
@@ -194,9 +197,9 @@ pub(crate) fn interpolate_polynomial(
     for i in 0..n {
         let mut num = 1u8;
 
-        for (j, _) in x_samples.iter().enumerate().take(n) {
+        for (j, &xj) in x_samples.iter().enumerate() {
             if i != j {
-                num = mult(num, x ^ x_samples[j]);
+                num = mult(num, x ^ xj);
             }
         }
 
@@ -206,6 +209,32 @@ pub(crate) fn interpolate_polynomial(
     }
 
     Ok(result)
+}
+
+/// Precomputes the Lagrange basis evaluated at x=0
+#[inline(always)]
+pub(crate) fn compute_lagrange_basis_at_zero(x_samples: &[u8]) -> Vec<u8> {
+    let n = x_samples.len();
+    let mut basis = vec![0u8; n];
+
+    for i in 0..n {
+        let xi = x_samples[i];
+        let mut num = 1u8;
+        let mut denom = 1u8;
+
+        for j in 0..n {
+            if i == j {
+                continue;
+            }
+
+            let xj = x_samples[j];
+            num = mult(num, xj);
+            denom = mult(denom, xi ^ xj);
+        }
+
+        basis[i] = mult(num, inverse(denom));
+    }
+    basis
 }
 
 #[cfg(test)]
