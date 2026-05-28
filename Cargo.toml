@@ -1,8 +1,8 @@
 [package]
 name = "shamir-zero"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2024"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
 repository = "https://github.com/allensarkisyan/shamir_zero"
 readme = "README.md"
