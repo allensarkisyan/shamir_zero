@@ -213,23 +213,34 @@ pub(crate) fn compute_lagrange_basis_at_zero(x_samples: &[u8]) -> Vec<u8> {
     let n = x_samples.len();
     let mut basis = vec![0u8; n];
 
+    if n == 0 {
+        return basis;
+    }
+
+    let mut prod_all = 1u8;
+    for &x in x_samples {
+        prod_all = mult(prod_all, x);
+    }
+
     for i in 0..n {
         let xi = x_samples[i];
-        let mut num = 1u8;
-        let mut denom = 1u8;
 
-        for j in 0..n {
-            if i == j {
-                continue;
+        if xi == 0 {
+            basis[i] = 1;
+        } else {
+            let num = mult(prod_all, inverse(xi));
+            let mut denom = 1u8;
+
+            for j in 0..n {
+                if i != j {
+                    denom = mult(denom, xi ^ x_samples[j]);
+                }
             }
 
-            let xj = x_samples[j];
-            num = mult(num, xj);
-            denom = mult(denom, xi ^ xj);
+            basis[i] = mult(num, inverse(denom));
         }
-
-        basis[i] = mult(num, inverse(denom));
     }
+
     basis
 }
 
@@ -304,6 +315,36 @@ mod shamir_math_tests {
             let y_vals = [p.evaluate(1), p.evaluate(2), p.evaluate(3)];
             let out = interpolate_polynomial(&x_vals, &y_vals, 0).unwrap();
             assert_eq!(out, i, "Failed for intercept {}", i);
+        }
+    }
+
+    // Exhaustively covers every possible value in GF(2^8) (0..255)
+    // Tests all possible pairs of distinct x-coordinates.
+    #[test]
+    fn test_compute_lagrange_basis_at_zero_all_gf28_values() {
+        let out = compute_lagrange_basis_at_zero(&[]);
+
+        for i in 0u8..255 {
+            for j in (i + 1)..=255 {
+                let x_samples = [i, j];
+                let basis = compute_lagrange_basis_at_zero(&x_samples);
+
+                // Direct mathematical computation for n=2 at x=0:
+                let denom = inverse(i ^ j);
+                let expected_0 = mult(j, denom);
+                let expected_1 = mult(i, denom);
+
+                assert_eq!(basis[0], expected_0, "Failed for x_samples=[{}, {}]", i, j);
+                assert_eq!(basis[1], expected_1, "Failed for x_samples=[{}, {}]", i, j);
+
+                assert_eq!(
+                    basis[0] ^ basis[1],
+                    1,
+                    "Basis sum invariant failed for x_samples=[{}, {}]",
+                    i,
+                    j
+                );
+            }
         }
     }
 
