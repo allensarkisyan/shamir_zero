@@ -1,8 +1,10 @@
 [env]
-RUST_BACKTRACE="full"
+RUST_BACKTRACE = "full"
 
 [alias]
-coverage-report = "tarpaulin --follow-exec --timeout 60 --branch --out Html --output-dir ./tmp/coverage"
+coverage-report = "tarpaulin --engine llvm --skip-clean --all-features --out Html --output-dir ./tmp/coverage/all"
+coverage-fast-inverse = "tarpaulin --engine llvm --skip-clean --features fast-inverse --out Html --output-dir ./tmp/coverage/fast_inverse"
+coverage-arithmetic = "tarpaulin --engine llvm --skip-clean --no-default-features --out Html --output-dir ./tmp/coverage/arithmetic"
 clippy-log = "clippy --all-targets"
 benchmark-save = "bench --bench shamir_zero_benchmark -- --save-baseline main"
 benchmark-compare = "bench --bench shamir_zero_benchmark -- --baseline main"

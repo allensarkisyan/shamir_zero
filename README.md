@@ -8,7 +8,8 @@
 
 [![Crates.io Version](https://img.shields.io/crates/v/shamir_zero)](https://crates.io/crates/shamir-zero)
 [![docs.rs](https://img.shields.io/docsrs/shamir-zero)](https://docs.rs/shamir_zero)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE-MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache2.0-red.svg)](LICENSE-APACHE)
 [![CodeQL](https://github.com/allensarkisyan/shamir_zero/actions/workflows/codeql.yml/badge.svg)](https://github.com/allensarkisyan/shamir_zero/actions/workflows/codeql.yml)
 ![GitHub issues](https://img.shields.io/github/issues/allensarkisyan/shamir_zero)
 ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/allensarkisyan/shamir_zero/tests.yml?label=tests)
@@ -295,7 +296,16 @@ gh attestation verify shamir-zero-*.crate -R allensarkisyan/shamir_zero \
 
 # License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
+`shamir-zero` is dual-licensed under the MIT license and the Apache License (Version 2.0).  
+You may choose to use either license at your option.
+
+- [MIT License](LICENSE-MIT)  
+- [Apache License, Version 2.0](LICENSE-APACHE)
+
+---
+
+The original Go implementation by HashiCorp Vault was licensed under MPL-2.0.  
+This Rust port has been re-licensed under the more permissive MIT/Apache-2.0 dual license.
 
 MIT License
 

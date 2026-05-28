@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod shamir_tests {
     use rand::{TryRng, rngs::SysRng};
-    use shamir_zero::{shamir_combine, shamir_split};
+    use shamir_zero::{ShamirError, shamir_combine, shamir_split};
 
     /// Helper method to generate random sized bytes
     fn generate_random_bytes_sized<const N: usize>() -> [u8; N] {
@@ -18,11 +18,23 @@ mod shamir_tests {
     fn test_split_invalid() {
         let secret = b"test";
 
-        assert!(shamir_split(secret, 0, 0).is_err());
-        assert!(shamir_split(secret, 2, 3).is_err());
-        assert!(shamir_split(secret, 1000, 3).is_err());
-        assert!(shamir_split(secret, 10, 1).is_err());
-        assert!(shamir_split(&[], 3, 2).is_err());
+        assert_eq!(
+            shamir_split(secret, 0, 0),
+            Err(ShamirError::ThresholdLessThanMinimumLength)
+        );
+        assert_eq!(
+            shamir_split(secret, 2, 3),
+            Err(ShamirError::PartsLessThanThresholdLength)
+        );
+        assert_eq!(
+            shamir_split(secret, 1000, 3),
+            Err(ShamirError::PartsExceedMaximumLength)
+        );
+        assert_eq!(
+            shamir_split(secret, 10, 1),
+            Err(ShamirError::ThresholdLessThanMinimumLength)
+        );
+        assert_eq!(shamir_split(&[], 3, 2), Err(ShamirError::EmptySecret));
     }
 
     #[test]
@@ -37,25 +49,49 @@ mod shamir_tests {
 
         // Threshold max length
         let out = shamir_split(secret, 5, 256);
-        assert!(out.is_err());
+        assert_eq!(out, Err(ShamirError::ThresholdExceedsMaximumLength));
     }
 
     #[test]
     fn test_combine_invalid() {
         // Not enough parts
-        assert!(shamir_combine(&[]).is_err());
+        assert_eq!(shamir_combine(&[]), Err(ShamirError::RequiredMinimumParts));
 
         // Length mismatch
         let parts = vec![b"foo".to_vec(), b"ba".to_vec()];
-        assert!(shamir_combine(&parts).is_err());
+        assert_eq!(
+            shamir_combine(&parts),
+            Err(ShamirError::PartsLengthMismatch)
+        );
+    }
 
+    #[test]
+    fn test_combine_invalid_bytes() {
         // Too short (< 2 bytes)
         let parts = vec![b"f".to_vec(), b"b".to_vec()];
-        assert!(shamir_combine(&parts).is_err());
+        assert_eq!(
+            shamir_combine(&parts),
+            Err(ShamirError::MinimumPartByteLength)
+        );
 
         // Duplicate x value
         let parts = vec![b"foo".to_vec(), b"foo".to_vec()];
-        assert!(shamir_combine(&parts).is_err());
+        assert_eq!(
+            shamir_combine(&parts),
+            Err(ShamirError::DuplicatePartDetected)
+        );
+    }
+
+    #[test]
+    fn test_combine_invalid_share() {
+        // Invalid Share x value
+        let secret = b"test";
+        let mut parts = shamir_split(secret, 5, 3).unwrap();
+        let x_index = secret.len();
+        parts[2][x_index] = 0;
+        let out = shamir_combine(&parts[0..3]);
+
+        assert_eq!(out, Err(ShamirError::InvalidShareXValue));
     }
 
     #[test]
