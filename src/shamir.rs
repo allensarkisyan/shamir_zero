@@ -125,7 +125,7 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
 
     let secret_len = share_len - 1;
 
-    let mut x_samples = vec![0u8; n];
+    let mut x_samples = [0u8; 256];
     let mut seen = [false; 256];
 
     for (i, part) in parts.iter().enumerate() {
@@ -143,15 +143,16 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
         x_samples[i] = x;
     }
 
-    // Precompute Lagrange basis coefficients
-    let basis = compute_lagrange_basis_at_zero(&x_samples);
+    // Precompute Lagrange basis coefficients on stack, zero-copy
+    let mut basis = [0u8; 256];
+    compute_lagrange_basis_at_zero(&x_samples[..n], &mut basis[..n]);
 
     let mut secret = vec![0u8; secret_len];
 
     for byte_idx in 0..secret_len {
         let mut val = 0u8;
-        for (i, part) in parts.iter().enumerate() {
-            val ^= mult(part[byte_idx], basis[i]);
+        for i in 0..n {
+            val ^= mult(parts[i][byte_idx], basis[i]);
         }
         secret[byte_idx] = val;
     }

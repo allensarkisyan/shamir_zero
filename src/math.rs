@@ -94,40 +94,35 @@ pub(crate) fn div(a: u8, b: u8) -> Option<u8> {
 }
 
 /// Precomputes the Lagrange basis evaluated at x=0
+/// Zero-copy internally: writes directly to the provided mutable slice.
 #[inline(always)]
-pub(crate) fn compute_lagrange_basis_at_zero(x_samples: &[u8]) -> Vec<u8> {
+pub(crate) fn compute_lagrange_basis_at_zero(x_samples: &[u8], out: &mut [u8]) {
     let n = x_samples.len();
-    let mut basis = vec![0u8; n];
+    if n != 0 {
+        let mut prod_all = 1u8;
+        for &x in x_samples {
+            prod_all = mult(prod_all, x);
+        }
 
-    if n == 0 {
-        return basis;
-    }
+        for i in 0..n {
+            let xi = x_samples[i];
 
-    let mut prod_all = 1u8;
-    for &x in x_samples {
-        prod_all = mult(prod_all, x);
-    }
+            if xi == 0 {
+                out[i] = 1;
+            } else {
+                let num = mult(prod_all, inverse(xi));
+                let mut denom = 1u8;
 
-    for i in 0..n {
-        let xi = x_samples[i];
-
-        if xi == 0 {
-            basis[i] = 1;
-        } else {
-            let num = mult(prod_all, inverse(xi));
-            let mut denom = 1u8;
-
-            for j in 0..n {
-                if i != j {
-                    denom = mult(denom, xi ^ x_samples[j]);
+                for j in 0..n {
+                    if i != j {
+                        denom = mult(denom, xi ^ x_samples[j]);
+                    }
                 }
-            }
 
-            basis[i] = mult(num, inverse(denom));
+                out[i] = mult(num, inverse(denom));
+            }
         }
     }
-
-    basis
 }
 
 #[cfg(test)]
@@ -159,25 +154,29 @@ mod shamir_math_tests {
     // Tests all possible pairs of distinct x-coordinates.
     #[test]
     fn test_compute_lagrange_basis_at_zero_all_gf28_values() {
-        let out = compute_lagrange_basis_at_zero(&[]);
+        let mut out = [0u8; 256];
+        compute_lagrange_basis_at_zero(&[], &mut out[..0]);
 
-        assert_eq!(out, []);
+        assert_eq!(out, [0u8; 256]);
 
         for i in 0u8..255 {
             for j in (i + 1)..=255 {
                 let x_samples = [i, j];
-                let basis = compute_lagrange_basis_at_zero(&x_samples);
+                compute_lagrange_basis_at_zero(&x_samples, &mut out[..2]);
+
+                let basis_0 = out[0];
+                let basis_1 = out[1];
 
                 // Direct mathematical computation for n=2 at x=0:
                 let denom = inverse(i ^ j);
                 let expected_0 = mult(j, denom);
                 let expected_1 = mult(i, denom);
 
-                assert_eq!(basis[0], expected_0, "Failed for x_samples=[{}, {}]", i, j);
-                assert_eq!(basis[1], expected_1, "Failed for x_samples=[{}, {}]", i, j);
+                assert_eq!(basis_0, expected_0, "Failed for x_samples=[{}, {}]", i, j);
+                assert_eq!(basis_1, expected_1, "Failed for x_samples=[{}, {}]", i, j);
 
                 assert_eq!(
-                    basis[0] ^ basis[1],
+                    basis_0 ^ basis_1,
                     1,
                     "Basis sum invariant failed for x_samples=[{}, {}]",
                     i,
