@@ -18,8 +18,13 @@ fuzz_target!(|data: &[u8]| {
 
     match shamir_split(secret, parts, threshold) {
         Ok(shares) => {
-            if let Ok(recovered) = shamir_combine(&shares[0..threshold]) {
-                assert_eq!(recovered, secret, "roundtrip failed");
+            let share_slices: Vec<&[u8]> =
+                shares[0..threshold].iter().map(|s| s.as_slice()).collect();
+
+            let mut recovered = vec![0u8; secret.len()];
+
+            if let Ok(()) = shamir_combine(&share_slices, &mut recovered) {
+                assert_eq!(recovered.as_slice(), secret, "roundtrip failed");
             }
         }
         Err(ShamirError::EmptySecret) if secret.is_empty() => {}

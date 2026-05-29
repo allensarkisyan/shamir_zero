@@ -41,6 +41,7 @@ fn shamir_zero_benchmark_full(c: &mut Criterion) {
         let secret = vec![0xAAu8; size];
 
         for &(parts, threshold) in &configs {
+            let mut recovered = vec![0u8; size];
             let id = BenchmarkId::new(
                 format!("roundtrip_{}of{}_size{}", threshold, parts, size),
                 size,
@@ -56,7 +57,13 @@ fn shamir_zero_benchmark_full(c: &mut Criterion) {
                     ))
                     .unwrap();
 
-                    let _ = black_box(shamir_combine(black_box(&shares[0..threshold])));
+                    let share_slices: Vec<&[u8]> =
+                        shares[0..threshold].iter().map(|s| s.as_slice()).collect();
+
+                    let _ = black_box(shamir_combine(
+                        black_box(share_slices.as_slice()),
+                        black_box(&mut recovered),
+                    ));
                 });
             });
         }

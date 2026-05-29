@@ -28,6 +28,8 @@ pub enum ShamirError {
     PartsLengthMismatch,
     /// x-value of a secret share cannot be 0
     InvalidShareXValue,
+    /// The provided output buffer length does not match the expected secret length (`share_len - 1`).
+    InvalidOutputLength,
 }
 
 /// Split takes an arbitrarily long secret and generates a `parts`
@@ -45,9 +47,15 @@ pub enum ShamirError {
 ///
 /// let secret_shares = shamir_split(secret_key, 5, 2).expect("valid params");
 ///
-/// let recovered = shamir_combine(&secret_shares[0..3]).expect("valid shares");
+/// let share_slices: Vec<&[u8]> = secret_shares[0..3]
+///     .iter()
+///     .map(|s| s.as_slice())
+///     .collect();
 ///
-/// assert_eq!(secret_key.to_vec(), recovered);
+/// let mut recovered = vec![0u8; secret_key.len()];
+/// shamir_combine(&share_slices, &mut recovered).expect("valid shares");
+///
+/// assert_eq!(secret_key, recovered.as_slice());
 /// ```
 pub fn shamir_split(
     secret: &[u8],
@@ -110,8 +118,8 @@ pub fn shamir_split(
 
 /// Combine is used to reverse a Split and reconstruct a secret
 /// once a `threshold` number of parts are available.
-#[inline]
-pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
+#[inline(always)]
+pub fn shamir_combine(parts: &[&[u8]], secret_out: &mut [u8]) -> Result<(), ShamirError> {
     let n = parts.len();
     if n < 2 {
         return Err(ShamirError::RequiredMinimumParts);
@@ -123,6 +131,9 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
     };
 
     let secret_len = share_len - 1;
+    if secret_out.len() != secret_len {
+        return Err(ShamirError::InvalidOutputLength);
+    }
 
     let mut x_samples = [0u8; 256];
     let mut seen = [false; 256];
@@ -146,15 +157,13 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
     let mut basis = [0u8; 256];
     compute_lagrange_basis_at_zero(&x_samples[..n], &mut basis[..n]);
 
-    let mut secret = vec![0u8; secret_len];
-
     for byte_idx in 0..secret_len {
         let mut val = 0u8;
         for i in 0..n {
             val ^= mult(parts[i][byte_idx], basis[i]);
         }
-        secret[byte_idx] = val;
+        secret_out[byte_idx] = val;
     }
 
-    Ok(secret)
+    Ok(())
 }
