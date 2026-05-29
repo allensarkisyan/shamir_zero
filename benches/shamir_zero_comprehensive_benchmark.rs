@@ -50,15 +50,23 @@ fn shamir_zero_benchmark_full(c: &mut Criterion) {
             group.throughput(Throughput::Bytes(size as u64));
             group.bench_with_input(id, &secret, |b, secret| {
                 b.iter(|| {
-                    let shares = black_box(shamir_split(
+                    // Zero-copy allocation
+                    let mut shares_out = vec![vec![0u8; secret.len() + 1]; parts];
+                    let shares_out_slices: Vec<&mut [u8]> =
+                        shares_out.iter_mut().map(|v| v.as_mut_slice()).collect();
+
+                    shamir_split(
                         black_box(secret),
                         black_box(parts),
                         black_box(threshold),
-                    ))
+                        &mut black_box(shares_out_slices),
+                    )
                     .unwrap();
 
-                    let share_slices: Vec<&[u8]> =
-                        shares[0..threshold].iter().map(|s| s.as_slice()).collect();
+                    let share_slices: Vec<&[u8]> = shares_out[0..threshold]
+                        .iter()
+                        .map(|s| s.as_slice())
+                        .collect();
 
                     let _ = black_box(shamir_combine(
                         black_box(share_slices.as_slice()),

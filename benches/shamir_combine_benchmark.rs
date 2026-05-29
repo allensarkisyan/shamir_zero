@@ -10,8 +10,14 @@ fn shamir_combine_benchmark(c: &mut Criterion) {
     let secret = vec![0xAAu8; size];
 
     for &(parts, threshold) in &configs {
-        let shares = match shamir_split(&secret, parts, threshold) {
-            Ok(shares) => shares,
+        let mut shares_out = vec![vec![0u8; secret.len() + 1]; parts];
+        let mut shares_out_slices: Vec<&mut [u8]> =
+            shares_out.iter_mut().map(|v| v.as_mut_slice()).collect();
+
+        let shares_result = shamir_split(&secret, parts, threshold, &mut shares_out_slices);
+
+        let shares = match shares_result {
+            Ok(_) => shares_out,
             Err(ShamirError::EmptySecret) if size == 0 => continue,
             Err(_) => continue,
         };
