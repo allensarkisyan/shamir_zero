@@ -4,7 +4,54 @@
 use crate::math::{compute_lagrange_basis_at_zero, mult};
 use rand::{TryRng, rngs::SysRng};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShamirZero;
+
+impl ShamirZero {
+    /// Splits a secret into `parts` shares, requiring `threshold` shares to reconstruct.
+    /// Internally allocates exactly once and delegates to the zero-copy `shamir_split`.
+    pub fn split(
+        secret: &[u8],
+        parts: usize,
+        threshold: usize,
+    ) -> Result<Vec<Vec<u8>>, ShamirError> {
+        let share_len = secret.len() + 1;
+
+        let mut shares = vec![vec![0u8; share_len]; parts];
+        let mut shares_out: Vec<&mut [u8]> = shares.iter_mut().map(|v| v.as_mut_slice()).collect();
+
+        shamir_split(secret, parts, threshold, &mut shares_out)?;
+
+        Ok(shares)
+    }
+
+    /// Reconstructs the secret from `threshold` or more shares.
+    /// Internally allocates exactly once and delegates to the zero-copy `shamir_combine`.
+    pub fn combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
+        if parts.len() < 2 {
+            return Err(ShamirError::RequiredMinimumParts);
+        }
+
+        let share_len = match parts.first() {
+            Some(p) if p.len() >= 2 => p.len(),
+            _ => return Err(ShamirError::MinimumPartByteLength),
+        };
+
+        if parts.iter().any(|p| p.len() != share_len) {
+            return Err(ShamirError::PartsLengthMismatch);
+        }
+
+        let secret_len = share_len - 1;
+        let mut recovered = vec![0u8; secret_len];
+
+        let slices: Vec<&[u8]> = parts.iter().map(|s| s.as_slice()).collect();
+
+        shamir_combine(&slices, &mut recovered)?;
+
+        Ok(recovered)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum ShamirError {
     /// `parts` cannot be less than `threshold`.
     PartsLessThanThresholdLength,
@@ -28,6 +75,8 @@ pub enum ShamirError {
     PartsLengthMismatch,
     /// x-value of a secret share cannot be 0
     InvalidShareXValue,
+    /// The provided output buffer length does not match the expected secret length (`share_len - 1`).
+    InvalidOutputLength,
 }
 
 /// Split takes an arbitrarily long secret and generates a `parts`
@@ -42,18 +91,33 @@ pub enum ShamirError {
 /// use shamir_zero::{shamir_split, shamir_combine};
 ///
 /// let secret_key = b"top secret security key";
+/// let parts = 5;
+/// let threshold = 3;
 ///
-/// let secret_shares = shamir_split(secret_key, 5, 2).expect("valid params");
+/// // Caller pre-allocates exactly once
+/// let mut shares_out = vec![vec![0u8; secret_key.len() + 1]; parts];
+/// let mut shares_out_slices: Vec<&mut [u8]> = shares_out.iter_mut()
+///     .map(|v| v.as_mut_slice())
+///     .collect();
 ///
-/// let recovered = shamir_combine(&secret_shares[0..3]).expect("valid shares");
+/// shamir_split(secret_key, parts, threshold, &mut shares_out_slices).unwrap();
 ///
-/// assert_eq!(secret_key.to_vec(), recovered);
+/// let share_slices: Vec<&[u8]> = shares_out[0..3]
+///     .iter()
+///     .map(|s| s.as_slice())
+///     .collect();
+///
+/// let mut recovered = vec![0u8; secret_key.len()];
+/// shamir_combine(&share_slices, &mut recovered).unwrap();
+///
+/// assert_eq!(secret_key, recovered.as_slice());
 /// ```
 pub fn shamir_split(
     secret: &[u8],
     parts: usize,
     threshold: usize,
-) -> Result<Vec<Vec<u8>>, ShamirError> {
+    shares_out: &mut [&mut [u8]],
+) -> Result<(), ShamirError> {
     if secret.is_empty() || !(2..=255).contains(&threshold) || parts < threshold || parts > 255 {
         return Err(match () {
             _ if secret.is_empty() => ShamirError::EmptySecret,
@@ -64,33 +128,37 @@ pub fn shamir_split(
         });
     }
 
+    if shares_out.len() != parts {
+        return Err(ShamirError::InvalidOutputLength);
+    }
+
     let n = secret.len();
     let degree = threshold - 1;
     let share_len = n + 1;
     let total_random = n * degree;
 
-    let mut shares = Vec::with_capacity(parts);
-    let mut random_coeffs = vec![0u8; total_random];
-    let mut rand_offset = 0usize;
-
-    for i in 1..=parts {
-        let mut share = vec![0u8; share_len];
-        share[n] = i as u8;
-        shares.push(share);
+    for (i, share) in shares_out.iter_mut().enumerate() {
+        if share.len() != share_len {
+            return Err(ShamirError::InvalidOutputLength);
+        }
+        share[n] = (i + 1) as u8;
     }
 
     // Bulk-generate all random coefficients
     // TODO: add feature flag for `rand` usage
+    let mut random_coeffs = vec![0u8; total_random];
     SysRng
         .try_fill_bytes(&mut random_coeffs)
         .map_err(|_| ShamirError::FailedToGeneratePolynomial)?;
 
-    for (byte_idx, &secret_byte) in secret.iter().enumerate() {
-        let poly_randoms = &random_coeffs[rand_offset..rand_offset + degree];
+    // Fully inlined Horner evaluation
+    for (share_idx, share) in shares_out.iter_mut().enumerate() {
+        let x = (share_idx + 1) as u8;
 
-        // Fully inlined Horner evaluation
-        for (share_idx, share) in shares.iter_mut().enumerate() {
-            let x = (share_idx + 1) as u8;
+        for byte_idx in 0..n {
+            // Compute offset based on byte index, as coefficients are laid out byte-by-byte
+            let poly_offset = byte_idx * degree;
+            let poly_randoms = &random_coeffs[poly_offset..poly_offset + degree];
 
             let mut result = poly_randoms[degree - 1];
 
@@ -98,20 +166,18 @@ pub fn shamir_split(
                 result = mult(result, x) ^ poly_randoms[k];
             }
 
-            result = mult(result, x) ^ secret_byte;
+            result = mult(result, x) ^ secret[byte_idx];
             share[byte_idx] = result;
         }
-
-        rand_offset += degree;
     }
 
-    Ok(shares)
+    Ok(())
 }
 
 /// Combine is used to reverse a Split and reconstruct a secret
 /// once a `threshold` number of parts are available.
-#[inline]
-pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
+#[inline(always)]
+pub fn shamir_combine(parts: &[&[u8]], secret_out: &mut [u8]) -> Result<(), ShamirError> {
     let n = parts.len();
     if n < 2 {
         return Err(ShamirError::RequiredMinimumParts);
@@ -123,6 +189,9 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
     };
 
     let secret_len = share_len - 1;
+    if secret_out.len() != secret_len {
+        return Err(ShamirError::InvalidOutputLength);
+    }
 
     let mut x_samples = [0u8; 256];
     let mut seen = [false; 256];
@@ -146,15 +215,13 @@ pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
     let mut basis = [0u8; 256];
     compute_lagrange_basis_at_zero(&x_samples[..n], &mut basis[..n]);
 
-    let mut secret = vec![0u8; secret_len];
-
     for byte_idx in 0..secret_len {
         let mut val = 0u8;
         for i in 0..n {
             val ^= mult(parts[i][byte_idx], basis[i]);
         }
-        secret[byte_idx] = val;
+        secret_out[byte_idx] = val;
     }
 
-    Ok(secret)
+    Ok(())
 }

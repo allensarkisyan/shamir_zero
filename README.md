@@ -38,6 +38,18 @@ Split any secret into `n` shares such that any `k` (the threshold) can reconstru
 - Memory-safe and constant-time where possible
 - Excellent performance - significantly faster than the original Go reference implementation
 
+### Zero-Copy Core API
+
+- `shamir_split` accepts a pre-allocated output buffer `&mut [&mut [u8]]`
+- Eliminates all intermediate allocations for maximum performance and predictable memory usage
+- Ideal for high-throughput, embedded, or latency-sensitive cryptographic workloads
+
+### High-Level Convenience Wrapper (`ShamirZero`)
+
+- Bridges the zero-copy core with a familiar `Vec<Vec<u8>>` interface
+- Internally allocates exactly once per operation and delegates to the optimized core
+- Provides `split()` and `combine()` methods with automatic error handling
+
 ## Installation
 
 ```toml
@@ -47,9 +59,10 @@ shamir-zero = { version = "0.1", features = ["fast-inverse"] } # default
 # shamir-zero = { version = "0.1", default-features = false }
 ```
 
-By default, `shamir-zero` uses a **compile-time 256-byte lookup table** for multiplicative inversion in GF(2^8).  
+By default, `shamir-zero` uses a **compile-time 256-byte lookup table** for multiplicative inversion in GF(2^8).
 
 **Why this is the recommended default:**
+
 - Dramatically faster reconstruction (`shamir_combine`) - often 2–5× faster than the pure-arithmetic version.
 - Still fully constant-time and side-channel safe.
 - The table index is derived exclusively from **public** share IDs (the x-coordinates), never from secret data.
@@ -68,25 +81,68 @@ shamir-zero = { version = "0.1", default-features = false }
 
 This option exists for ultra-paranoid embedded environments or academic "no lookup tables" requirements, but is unnecessary for almost all use cases.
 
-
 ## Quick Start
 
+### High-Level Convenience Wrapper
+
 ```rust
-use shamir_zero::{shamir_split, shamir_combine, ShamirError};
+use shamir_zero::{ShamirZero, ShamirError};
+
 
 fn main() -> Result<(), ShamirError> {
     let secret = b"top secret security key";
 
+
     // Split into 5 shares, any 3 can reconstruct
-    let shares = shamir_split(secret, 5, 3)?;
+    let shares = ShamirZero::split(secret, 5, 3)?;
+
 
     // Reconstruct from any 3 shares
-    let recovered = shamir_combine(&shares[0..3])?;
+    let recovered = ShamirZero::combine(&shares[0..3])?;
+
 
     assert_eq!(recovered, secret);
     Ok(())
 }
 ```
+
+### Core Zero-Copy API (Maximum Performance)
+
+```rust
+use shamir_zero::{shamir_split, shamir_combine, ShamirError};
+
+
+fn main() -> Result<(), ShamirError> {
+    let secret = b"top secret security key";
+    let parts = 5;
+    let threshold = 3;
+
+    // Pre-allocate exactly once
+    let mut shares = vec![vec![0u8; secret.len() + 1]; parts];
+    let shares_out: Vec<&mut [u8]> = shares.iter_mut().map(|s| s.as_mut_slice()).collect();
+
+    // Zero-copy split
+    shamir_split(secret, parts, threshold, &mut shares_out)?;
+
+    // Zero-copy combine
+    let mut recovered = vec![0u8; secret.len()];
+    shamir_combine(&shares[0..threshold].iter().map(|s| s.as_slice()).collect::<Vec<&[u8]>>(), &mut recovered)?;
+
+
+    assert_eq!(recovered, secret);
+    Ok(())
+}
+```
+
+## API Design & Zero-Copy Philosophy
+
+`shamir_split` was redesigned to require an output buffer (`&mut [&mut [u8]]`) instead of returning `Vec<Vec<u8>>`. This eliminates:
+
+1. `parts` intermediate `Vec` allocations
+2. Heap fragmentation from repeated allocation/deallocation
+3. Unpredictable memory overhead in cryptographic contexts
+
+For most applications, the **`ShamirZero` wrapper** provides the same safety and correctness with a familiar API, allocating exactly once internally. Use the core API when you need explicit memory control or are operating in constrained environments.
 
 ## Usage Examples
 
@@ -94,16 +150,16 @@ fn main() -> Result<(), ShamirError> {
 
 ```rust
 let secret = b"0xdeadbeef";
-let shares = shamir_split(secret, 10, 5)?;
-let recovered = shamir_combine(&shares[2..7])?; // any 5 shares
+let shares = ShamirZero::split(secret, 10, 5)?;
+let recovered = ShamirZero::combine(&shares[2..7])?; // any 5 shares
 ```
 
 ### 2. `String` (owned)
 
 ```rust
 let secret = "0xcafe".to_string();
-let shares = shamir_split(secret.as_bytes(), 7, 4)?;
-let recovered_bytes = shamir_combine(&shares[0..4])?;
+let shares = ShamirZero::split(secret.as_bytes(), 7, 4)?;
+let recovered_bytes = ShamirZero::combine(&shares[0..4])?;
 let recovered = String::from_utf8(recovered_bytes).unwrap();
 ```
 
@@ -111,17 +167,18 @@ let recovered = String::from_utf8(recovered_bytes).unwrap();
 
 ```rust
 let secret: Vec<u8> = vec![0x01, 0x02, 0x03, 0xFF, 0xAA];
-let shares = shamir_split(&secret, 8, 3)?;
-let recovered = shamir_combine(&shares[3..6])?;
+let shares = ShamirZero::split(&secret, 8, 3)?;
+let recovered = ShamirZero::combine(&shares[3..6])?;
 ```
 
 ### 4. Fixed-size arrays (`[u8; N]`) - perfect for keys
 
 ```rust
 let secret: [u8; 32] = [0x42; 32]; // 256-bit key
-let shares = shamir_split(&secret, 6, 4)?;
+let shares = ShamirZero::split(&secret, 6, 4)?;
 
-let recovered: Vec<u8> = shamir_combine(&shares[1..5])?;
+
+let recovered: Vec<u8> = ShamirZero::combine(&shares[1..5])?;
 let recovered_array: [u8; 32] = recovered.try_into().unwrap();
 ```
 
@@ -131,8 +188,9 @@ let recovered_array: [u8; 32] = recovered.try_into().unwrap();
 let number: u128 = 12345678901234567890;
 let secret_bytes = number.to_le_bytes();
 
-let shares = shamir_split(&secret_bytes, 5, 3)?;
-let recovered_bytes = shamir_combine(&shares[0..3])?;
+
+let shares = ShamirZero::split(&secret_bytes, 5, 3)?;
+let recovered_bytes = ShamirZero::combine(&shares[0..3])?;
 let recovered_number = u128::from_le_bytes(recovered_bytes.try_into().unwrap());
 ```
 
@@ -140,8 +198,8 @@ let recovered_number = u128::from_le_bytes(recovered_bytes.try_into().unwrap());
 
 ```rust
 fn split_and_recover(secret: &[u8], parts: usize, threshold: usize) -> Result<Vec<u8>, ShamirError> {
-    let shares = shamir_split(secret, parts, threshold)?;
-    shamir_combine(&shares[0..threshold]) // any `threshold` shares work
+    let shares = ShamirZero::split(secret, parts, threshold)?;
+    ShamirZero::combine(&shares[0..threshold]) // any `threshold` shares work
 }
 ```
 
@@ -178,15 +236,15 @@ In 2002, Shamir, Rivest, and Adleman received the **Turing Award** - computer sc
 
 This Rust implementation was ported and heavily optimized from the popular Go reference implementation. Here's how it improved:
 
-| Aspect                      | Original Go          | ShamirZero                                    | Benefit                               |
-| --------------------------- | -------------------- | --------------------------------------------- | ------------------------------------- |
-| Randomness                  | `crypto/rand`        | `rand::rngs::SysRng` (2024+)                  | Faster, zero-sized, guaranteed CSPRNG |
-| Polynomial evaluation       | Standard loop        | Inlined Horner's method (`#[inline(always)]`) | ~3–4× faster per byte                 |
-| Memory allocation           | Multiple allocations | Single pre-allocated shares + minimal temp    | Lower peak memory & fewer allocations |
-| Error handling              | `error` interface    | Zero-cost `Result` with custom enum           | No heap allocation on error path      |
-| Safety                      | GC + runtime checks  | Compile-time ownership & borrowing            | Memory-safe by construction           |
-| Build & CI                  | Go modules           | Modern Rust + cargo-llvm-cov                  | Faster CI, better coverage            |
-| Performance (large secrets) | Baseline             | **~2.8× faster** on 1 KB+ secrets             | Real-world performance                |
+| Aspect                      | Original Go          | ShamirZero                                         | Benefit                               |
+| --------------------------- | -------------------- | -------------------------------------------------- | ------------------------------------- |
+| Randomness                  | `crypto/rand`        | `rand::rngs::SysRng` (2024+)                       | Faster, zero-sized, guaranteed CSPRNG |
+| Polynomial evaluation       | Standard loop        | Inlined Horner's method (`#[inline(always)]`)      | ~3–4× faster per byte                 |
+| Memory allocation           | Multiple allocations | **Zero-copy core** / One allocation (`ShamirZero`) | Lower peak memory & fewer allocations |
+| Error handling              | `error` interface    | Zero-cost `Result` with custom enum                | No heap allocation on error path      |
+| Safety                      | GC + runtime checks  | Compile-time ownership & borrowing                 | Memory-safe by construction           |
+| Build & CI                  | Go modules           | Modern Rust + cargo-llvm-cov                       | Faster CI, better coverage            |
+| Performance (large secrets) | Baseline             | **~2.8× faster** on 1 KB+ secrets                  | Real-world performance                |
 
 ---
 
@@ -228,12 +286,12 @@ This crate ships with **four dedicated Criterion benchmarks** that thoroughly me
 
 ### Available Benchmark Targets
 
-| Benchmark Target                        | Type                  | Secret Size     | Configurations | Description |
-|-----------------------------------------|-----------------------|-----------------|----------------|-----------|
-| `shamir_zero_benchmark`                 | Roundtrip             | 64 bytes        | 5              | Quick roundtrip (`split → combine`) on common small configurations |
-| `shamir_split_benchmark`                | Split only            | 64 bytes        | 5              | Pure `shamir_split` performance |
-| `shamir_combine_benchmark`              | Combine only          | 64 bytes        | 5              | Pure `shamir_combine` performance |
-| `shamir_zero_comprehensive_benchmark`   | **Full Roundtrip**    | 8 B – 32 KB     | 23             | **Most comprehensive** – tests every secret size + wide range of `(parts, threshold)` pairs (including edge cases up to 255-of-255) |
+| Benchmark Target                      | Type               | Secret Size | Configurations | Description                                                                                                                         |
+| ------------------------------------- | ------------------ | ----------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `shamir_zero_benchmark`               | Roundtrip          | 64 bytes    | 5              | Quick roundtrip (`split → combine`) on common small configurations                                                                  |
+| `shamir_split_benchmark`              | Split only         | 64 bytes    | 5              | Pure `shamir_split` performance                                                                                                     |
+| `shamir_combine_benchmark`            | Combine only       | 64 bytes    | 5              | Pure `shamir_combine` performance                                                                                                   |
+| `shamir_zero_comprehensive_benchmark` | **Full Roundtrip** | 8 B – 32 KB | 23             | **Most comprehensive** – tests every secret size + wide range of `(parts, threshold)` pairs (including edge cases up to 255-of-255) |
 
 ### How to Run the Benchmarks
 
@@ -299,7 +357,7 @@ gh attestation verify shamir-zero-*.crate -R allensarkisyan/shamir_zero \
 `shamir-zero` is dual-licensed under the MIT license and the Apache License (Version 2.0).  
 You may choose to use either license at your option.
 
-- [MIT License](LICENSE-MIT)  
+- [MIT License](LICENSE-MIT)
 - [Apache License, Version 2.0](LICENSE-APACHE)
 
 ---
