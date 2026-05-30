@@ -10,6 +10,7 @@ fn shamir_zero_benchmark(c: &mut Criterion) {
     let secret = vec![0xAAu8; size];
 
     for &(parts, threshold) in &configs {
+        let mut recovered = vec![0u8; size];
         let id = BenchmarkId::new(
             format!("roundtrip_{}of{}_size{}", threshold, parts, size),
             size,
@@ -19,14 +20,27 @@ fn shamir_zero_benchmark(c: &mut Criterion) {
         group.bench_with_input(id, &secret, |b, secret| {
             b.iter(|| {
                 // Full roundtrip: split then immediately combine using threshold shares
-                let shares = black_box(shamir_split(
+                let mut shares_out = vec![vec![0u8; secret.len() + 1]; parts];
+                let shares_out_slices: Vec<&mut [u8]> =
+                    shares_out.iter_mut().map(|v| v.as_mut_slice()).collect();
+
+                shamir_split(
                     black_box(secret),
                     black_box(parts),
                     black_box(threshold),
-                ))
-                .unwrap(); // safe because our configs are always valid
+                    &mut black_box(shares_out_slices),
+                )
+                .unwrap();
 
-                let _ = black_box(shamir_combine(black_box(&shares[0..threshold])));
+                let share_slices: Vec<&[u8]> = shares_out[0..threshold]
+                    .iter()
+                    .map(|s| s.as_slice())
+                    .collect();
+
+                let _ = black_box(shamir_combine(
+                    black_box(share_slices.as_slice()),
+                    black_box(&mut recovered),
+                ));
             });
         });
     }
