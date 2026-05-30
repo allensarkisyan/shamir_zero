@@ -13,18 +13,37 @@
 
 ### Added
 - Introduced `CHANGELOG.md`
-- Zero-copy `shamir_combine` implementation
+- High level `ShamirZero` API
+- Zero-copy `shamir_split` and `shamir_combine` implementations
 
 ### Changed
 - Update benchmarks and unit tests to reflect API updates
 
 ### Breaking Changes
+- **shamir_split**: optimize shamir_split by accepting pre-allocated output buffers
+
+- Replace the `Vec<Vec<u8>>` return type with a caller-provided `shares_out: &mut [&mut [u8]]` parameter. This eliminates heap allocations during secret splitting, improves performance, and gives callers control over memory layout.
+
 - **shamir_combine**: Now accepts a mutable `secret_out` output buffer for direct manipulation
+
+```diff
+- pub fn shamir_split(
+-     secret: &[u8],
+-     parts: usize,
+-     threshold: usize,
+- ) -> Result<Vec<Vec<u8>>, ShamirError>
++ pub fn shamir_split(
++     secret: &[u8],
++     parts: usize,
++     threshold: usize,
++     shares_out: &mut [&mut [u8]]
++ ) -> Result<(), ShamirError>
+```
 
 ```diff
 - pub fn shamir_combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError>;
 + pub fn shamir_combine(parts: &[&[u8]], secret_out: &mut [u8]) -> Result<(), ShamirError>;
-``` 
+```
 
 ## **[v0.1.9]**
 

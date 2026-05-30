@@ -4,7 +4,54 @@
 use crate::math::{compute_lagrange_basis_at_zero, mult};
 use rand::{TryRng, rngs::SysRng};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShamirZero;
+
+impl ShamirZero {
+    /// Splits a secret into `parts` shares, requiring `threshold` shares to reconstruct.
+    /// Internally allocates exactly once and delegates to the zero-copy `shamir_split`.
+    pub fn split(
+        secret: &[u8],
+        parts: usize,
+        threshold: usize,
+    ) -> Result<Vec<Vec<u8>>, ShamirError> {
+        let share_len = secret.len() + 1;
+
+        let mut shares = vec![vec![0u8; share_len]; parts];
+        let mut shares_out: Vec<&mut [u8]> = shares.iter_mut().map(|v| v.as_mut_slice()).collect();
+
+        shamir_split(secret, parts, threshold, &mut shares_out)?;
+
+        Ok(shares)
+    }
+
+    /// Reconstructs the secret from `threshold` or more shares.
+    /// Internally allocates exactly once and delegates to the zero-copy `shamir_combine`.
+    pub fn combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
+        if parts.len() < 2 {
+            return Err(ShamirError::RequiredMinimumParts);
+        }
+
+        let share_len = match parts.first() {
+            Some(p) if p.len() >= 2 => p.len(),
+            _ => return Err(ShamirError::MinimumPartByteLength),
+        };
+
+        if parts.iter().any(|p| p.len() != share_len) {
+            return Err(ShamirError::PartsLengthMismatch);
+        }
+
+        let secret_len = share_len - 1;
+        let mut recovered = vec![0u8; secret_len];
+
+        let slices: Vec<&[u8]> = parts.iter().map(|s| s.as_slice()).collect();
+
+        shamir_combine(&slices, &mut recovered)?;
+
+        Ok(recovered)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum ShamirError {
     /// `parts` cannot be less than `threshold`.
     PartsLessThanThresholdLength,

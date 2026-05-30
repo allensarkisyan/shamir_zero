@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod shamir_tests {
     use rand::{TryRng, rngs::SysRng};
-    use shamir_zero::{ShamirError, shamir_combine, shamir_split};
+    use shamir_zero::{ShamirError, ShamirZero, shamir_combine, shamir_split};
 
     /// Helper method to generate random sized bytes
     fn generate_random_bytes_sized<const N: usize>() -> [u8; N] {
@@ -320,5 +320,25 @@ mod shamir_tests {
         shamir_combine(&slices, &mut recovered_bytes).unwrap();
         let recovered_number = u128::from_le_bytes(recovered_bytes.try_into().unwrap());
         assert_eq!(number, recovered_number);
+    }
+
+    #[test]
+    fn test_high_level_api() {
+        let shares = ShamirZero::split(b"test", 5, 3).unwrap();
+
+        assert_eq!(shares.len(), 5);
+
+        let recovered = ShamirZero::combine(&[]);
+        assert_eq!(recovered, Err(ShamirError::RequiredMinimumParts));
+
+        let recovered = ShamirZero::combine(&vec![b"f".to_vec(), b"f".to_vec()]);
+        assert_eq!(recovered, Err(ShamirError::MinimumPartByteLength));
+
+        let recovered = ShamirZero::combine(&vec![b"foo".to_vec(), b"ba".to_vec()]);
+        assert_eq!(recovered, Err(ShamirError::PartsLengthMismatch));
+
+        let recovered = ShamirZero::combine(&shares[0..3]).unwrap();
+        println!("{:?}", recovered);
+        assert_eq!(recovered, b"test");
     }
 }
