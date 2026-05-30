@@ -4,11 +4,37 @@
 use crate::math::{compute_lagrange_basis_at_zero, mult};
 use rand::{TryRng, rngs::SysRng};
 
+/// A high-level convenience wrapper around the zero-copy `shamir_split` and `shamir_combine` core APIs.
+///
+/// This struct provides a familiar `Vec<Vec<u8>>` interface while internally allocating
+/// exactly once and delegating to the optimized, zero-copy core implementations.
+///
+/// # Examples
+///
+/// ```
+/// use shamir_zero::{ShamirZero, ShamirError};
+///
+/// let secret = b"top secret security key";
+/// let shares = ShamirZero::split(secret, 5, 3).unwrap();
+/// let recovered = ShamirZero::combine(&shares[0..3]).unwrap();
+/// assert_eq!(recovered, secret);
+/// ```
 pub struct ShamirZero;
 
 impl ShamirZero {
     /// Splits a secret into `parts` shares, requiring `threshold` shares to reconstruct.
     /// Internally allocates exactly once and delegates to the zero-copy `shamir_split`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use shamir_zero::{ShamirZero, ShamirError};
+    ///
+    /// let secret = b"test secret";
+    /// let shares = ShamirZero::split(secret, 3, 2).unwrap();
+    /// assert_eq!(shares.len(), 3);
+    /// assert_eq!(shares[0].len(), secret.len() + 1);
+    /// ```
     pub fn split(
         secret: &[u8],
         parts: usize,
@@ -26,6 +52,17 @@ impl ShamirZero {
 
     /// Reconstructs the secret from `threshold` or more shares.
     /// Internally allocates exactly once and delegates to the zero-copy `shamir_combine`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use shamir_zero::{ShamirZero, ShamirError};
+    ///
+    /// let secret = b"test secret";
+    /// let shares = ShamirZero::split(secret, 3, 2).unwrap();
+    /// let recovered = ShamirZero::combine(&shares[0..2]).unwrap();
+    /// assert_eq!(recovered, secret);
+    /// ```
     pub fn combine(parts: &[Vec<u8>]) -> Result<Vec<u8>, ShamirError> {
         if parts.len() < 2 {
             return Err(ShamirError::RequiredMinimumParts);

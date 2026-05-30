@@ -734,7 +734,7 @@ dependencies = [
 
 [[package]]
 name = "shamir-zero"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "criterion",
  "env_logger",
