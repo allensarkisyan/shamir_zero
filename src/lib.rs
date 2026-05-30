@@ -40,7 +40,7 @@
 //!
 //! // Pre-allocate exactly once
 //! let mut shares = vec![vec![0u8; secret.len() + 1]; parts];
-//! let shares_out: Vec<&mut [u8]> = shares.iter_mut().map(|s| s.as_mut_slice()).collect();
+//! let mut shares_out: Vec<&mut [u8]> = shares.iter_mut().map(|s| s.as_mut_slice()).collect();
 //!
 //! // Zero-copy split
 //! shamir_split(secret, parts, threshold, &mut shares_out).unwrap();
