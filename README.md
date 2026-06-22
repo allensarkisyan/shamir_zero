@@ -335,6 +335,37 @@ This gives the most realistic view of end-to-end performance for real-world use 
 
 <br />
 
+## Performance & Improvements
+
+`shamir-zero` is a fast zero-copy pure Rust implementation of Shamir's Secret Sharing for typical byte secrets (GF(256) field).
+
+### Round-trip benchmark (split + recover)
+**Parameters**: `t=5`, `n=10` (threshold 5 of 10 shares)
+
+| Secret Size | shamir-zero (high-level) | **shamir-zero (zero-copy pre-allocated)** | sharks     | ssskit     | **Winner vs ssskit** |
+|-------------|--------------------------|-------------------------------------------|------------|------------|----------------------|
+| 32 B        | 7.53 µs                  | **7.32 µs**                               | 8.51 µs    | 7.55 µs    | **+3.1 %**           |
+| 64 B        | 14.20 µs                 | **13.98 µs**                              | 17.13 µs   | 15.43 µs   | **+9.4 %**           |
+| 128 B       | 27.53 µs                 | **27.31 µs**                              | 33.95 µs   | 30.77 µs   | **+11.2 %**          |
+| 256 B       | 54.06 µs                 | **53.83 µs**                              | 67.14 µs   | 61.12 µs   | **+11.9 %**          |
+| 1024 B      | 213.4 µs                 | **213.1 µs**                              | 264.9 µs   | 242.4 µs   | **+12.1 %**          |
+| 2048 B      | 427.2 µs                 | **426.2 µs**                              | 533.4 µs   | 485.0 µs   | **+12.1 %**          |
+
+**All numbers are mean round-trip time (lower = better).**  
+Measured with Criterion.rs on the same machine (results are extremely consistent across runs).
+
+The **zero-copy pre-allocated** API is the absolute fastest path and is recommended for high-performance or memory-constrained environments.
+
+> These benchmarks are fully reproducible — see [`benchmarks/benches/compare.rs`](benchmarks/benches/compare.rs) in the repository.
+
+---
+
+**Why is `shamir-zero` so fast?**
+- Zero-copy core path (no hidden allocations)
+- Compile-time lookup table for fast multiplicative inverses
+- Pure safe Rust with minimal dependencies
+- Carefully tuned GF(256) arithmetic
+
 ## Verifying Release Integrity
 
 All releases are cryptographically attested using **Sigstore** and logged to the public Rekor transparency log.

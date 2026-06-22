@@ -1,6 +1,6 @@
 [package]
 name = "shamir-zero"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 authors = ["Allen Sarkisyan <allensarkisyan@gmail.com>"]
@@ -9,7 +9,7 @@ readme = "README.md"
 keywords = ["cryptography", "shamir", "secret-sharing", "sss", "threshold"]
 categories = ["cryptography", "security", "mathematics", "algorithms"]
 description = """
-A Rust implementation of IBM / HashiCorp Vault's Shamir Secret Sharing (originally in Go under MPL-2.0)
+Fast zero-copy Shamir's Secret Sharing in Rust - derived from IBM / HashiCorp Vault's original Go implementation (MPL-2.0)
 """
 
 [features]
@@ -22,7 +22,7 @@ rand = { version = "0.10", features = ["sys_rng"] }
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
 env_logger = "0.11.10"
-log = "0.4.30"
+log = "0.4.33"
 
 
 [[bench]]

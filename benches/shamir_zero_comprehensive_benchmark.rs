@@ -50,9 +50,8 @@ fn shamir_zero_benchmark_full(c: &mut Criterion) {
             group.throughput(Throughput::Bytes(size as u64));
             group.bench_with_input(id, &secret, |b, secret| {
                 b.iter(|| {
-                    // Zero-copy allocation
                     let mut shares_out = vec![vec![0u8; secret.len() + 1]; parts];
-                    let shares_out_slices: Vec<&mut [u8]> =
+                    let mut shares_out_slices: Vec<&mut [u8]> =
                         shares_out.iter_mut().map(|v| v.as_mut_slice()).collect();
 
                     shamir_split(
