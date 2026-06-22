@@ -9,6 +9,14 @@
 ### Breaking Changes
 ```
 
+## [v0.1.11]
+
+### Added
+- Included comparison benchmarks
+
+### Changed
+- Updated dependencies & GitHub Actions workflows
+
 ## [v0.1.10]
 
 ### Added

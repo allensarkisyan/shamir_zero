@@ -21,7 +21,7 @@ fn shamir_zero_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 // Full roundtrip: split then immediately combine using threshold shares
                 let mut shares_out = vec![vec![0u8; secret.len() + 1]; parts];
-                let shares_out_slices: Vec<&mut [u8]> =
+                let mut shares_out_slices: Vec<&mut [u8]> =
                     shares_out.iter_mut().map(|v| v.as_mut_slice()).collect();
 
                 shamir_split(

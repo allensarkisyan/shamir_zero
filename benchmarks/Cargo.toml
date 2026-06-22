@@ -1,0 +1,17 @@
+[package]
+name = "shamir-zero-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+rand = "0.10.1"
+
+[dependencies]
+shamir-zero = "0.1.10"          # your crate
+sharks = "0.5.0"
+ssskit = "0.1.1"               # or latest version from crates.io
+
+[[bench]]
+name = "compare"
+harness = false
